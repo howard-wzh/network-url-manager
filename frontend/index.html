@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>URL Manager</title>
+<style>
+/* ── reset & base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  color: #2d3748;
+  background: #edf2f7;
+  min-height: 100vh;
+}
+
+/* ── header ─────────────────────────────────────────────────────────────────── */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 24px;
+  background: #0f2942;
+  box-shadow: 0 2px 8px rgba(0,0,0,.35);
+}
+header h1 { font-size: 18px; font-weight: 700; color: #fff; letter-spacing: .5px; }
+.user-wrap { display: flex; align-items: center; gap: 8px; color: #a0aec0; font-size: 12px; }
+#username-select {
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 5px;
+  padding: 5px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+}
+#username-select:focus { border-color: rgba(255,255,255,.55); }
+#username-select option { background: #1a3a5c; }
+
+/* ── layout ──────────────────────────────────────────────────────────────────── */
+main { padding: 20px 20px 40px; max-width: 1900px; margin: 0 auto; }
+
+/* ── alerts ──────────────────────────────────────────────────────────────────── */
+#error-banner {
+  background: #fff5f5; color: #c53030;
+  border: 1px solid #feb2b2; border-radius: 6px;
+  padding: 10px 16px; margin-bottom: 16px; font-size: 12px;
+}
+.hidden { display: none !important; }
+
+/* ── loading spinner ─────────────────────────────────────────────────────────── */
+#loading {
+  text-align: center; padding: 60px 0; color: #718096;
+  font-size: 15px; letter-spacing: .5px;
+}
+#loading::after {
+  content: '';
+  display: inline-block;
+  width: 18px; height: 18px;
+  margin-left: 10px;
+  border: 3px solid #cbd5e0;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── env section ─────────────────────────────────────────────────────────────── */
+.env-section {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.10);
+  margin-bottom: 22px;
+  overflow: hidden;
+}
+.env-section h2 {
+  background: #1a3a5c;
+  color: #fff;
+  padding: 11px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: .4px;
+}
+
+/* ── table ───────────────────────────────────────────────────────────────────── */
+.table-wrapper { overflow-x: auto; }
+
+.url-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+/* column widths */
+.url-table colgroup col.col-currency { width: 72px; }
+.url-table colgroup col.col-field    { width: calc((100% - 72px) / 4); }
+
+.url-table thead th {
+  background: #dde4ed;
+  padding: 9px 10px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4a5568;
+  border-bottom: 2px solid #b2bec8;
+  white-space: nowrap;
+}
+
+/* ── using row (grey) ───────────────────────────────────────────────────────── */
+tr.using-row td   { background: #f4f7fb; }
+tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
+
+.currency-cell {
+  font-weight: 800;
+  font-size: 12px;
+  text-align: center;
+  color: #2d3748;
+  vertical-align: middle;
+  padding: 6px 4px;
+  border-right: 2px solid #c9d5e0;
+  background: #e6ecf3 !important;
+}
+
+.using-cell, .backup-cell {
+  padding: 6px 9px;
+  vertical-align: top;
+  border-right: 1px solid #dde4ed;
+}
+.backup-cell { vertical-align: middle; }
+
+.na-cell {
+  color: #b0bec5;
+  text-align: center;
+  font-size: 17px;
+  vertical-align: middle !important;
+}
+
+/* current URL */
+.using-url {
+  word-break: break-all;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #2d3748;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+}
+
+/* expired URLs */
+.expired-url {
+  text-decoration: line-through;
+  color: #a0aec0;
+  font-size: 10.5px;
+  word-break: break-all;
+  margin-top: 3px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  line-height: 1.45;
+}
+
+/* ── backup input + deploy btn ──────────────────────────────────────────────── */
+.input-group { display: flex; gap: 5px; align-items: center; }
+
+.backup-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 7px;
+  border: 1px solid #cbd5e0;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  color: #2d3748;
+  transition: border-color .15s, box-shadow .15s;
+  background: #fff;
+}
+.backup-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59,130,246,.2);
+}
+.backup-input.saved { border-color: #38a169; }
+
+.deploy-btn {
+  flex-shrink: 0;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s, transform .1s;
+}
+.deploy-btn:hover  { background: #1d4ed8; }
+.deploy-btn:active { transform: scale(.96); }
+
+/* ── history section ─────────────────────────────────────────────────────────── */
+.history-section {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.10);
+  overflow: hidden;
+  margin-top: 4px;
+}
+.history-section h2 {
+  background: #4a5568;
+  color: #fff;
+  padding: 11px 18px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.history-table { width: 100%; border-collapse: collapse; }
+.history-table th {
+  background: #edf2f7;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4a5568;
+  border-bottom: 2px solid #cbd5e0;
+  white-space: nowrap;
+}
+.history-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #edf2f7;
+  font-size: 11.5px;
+  color: #4a5568;
+  vertical-align: top;
+}
+.history-table tr:hover td { background: #f7fafc; }
+
+.url-change-cell { word-break: break-all; line-height: 1.6; }
+.old-url { color: #e53e3e; font-family: monospace; font-size: 11px; }
+.new-url { color: #2f855a; font-family: monospace; font-size: 11px; }
+.arrow   { color: #718096; padding: 0 4px; }
+
+.empty-row td { text-align: center; color: #a0aec0; padding: 24px !important; }
+
+/* ── modal ───────────────────────────────────────────────────────────────────── */
+.modal {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-overlay {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,.55);
+}
+.modal-dialog {
+  position: relative;
+  background: #fff;
+  border-radius: 10px;
+  padding: 26px 28px 22px;
+  width: 92%;
+  max-width: 580px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.3);
+}
+.modal-dialog h3 {
+  font-size: 17px; font-weight: 700;
+  color: #1a202c; margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.modal-body p { margin-bottom: 8px; line-height: 1.6; color: #4a5568; }
+.modal-body strong { color: #2d3748; }
+
+.url-change-box {
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin: 10px 0;
+}
+.url-row { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
+.url-row:last-child { margin-bottom: 0; }
+.url-label {
+  font-size: 10.5px; font-weight: 700; color: #718096;
+  text-transform: uppercase; letter-spacing: .5px;
+}
+.url-val {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 11.5px; color: #2d3748;
+  word-break: break-all;
+  background: #edf2f7;
+  padding: 4px 8px;
+  border-radius: 4px;
+  line-height: 1.5;
+}
+.modal-buttons {
+  display: flex; gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+.btn-ok {
+  background: #2563eb; color: #fff;
+  border: none; padding: 8px 22px;
+  border-radius: 5px; font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: background .15s;
+}
+.btn-ok:hover { background: #1d4ed8; }
+.btn-cancel {
+  background: #fff; color: #4a5568;
+  border: 1px solid #cbd5e0;
+  padding: 8px 22px; border-radius: 5px;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: background .15s;
+}
+.btn-cancel:hover { background: #f7fafc; }
+
+/* ── toast ───────────────────────────────────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: 22px; right: 22px;
+  padding: 11px 20px; border-radius: 6px;
+  font-weight: 700; font-size: 13px;
+  z-index: 2000;
+  animation: toastIn .25s ease, toastOut .4s ease 2.6s forwards;
+  pointer-events: none;
+}
+.toast-ok  { background: #276749; color: #fff; }
+.toast-err { background: #c53030; color: #fff; }
+@keyframes toastIn  { from { transform: translateY(16px); opacity: 0; } }
+@keyframes toastOut { to   { opacity: 0; } }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ HEADER ═════════════════════════════════════ -->
+<header>
+  <h1>URL Manager</h1>
+  <div class="user-wrap">
+    <span>操作者：</span>
+    <select id="username-select">
+      <option value="Howard">Howard</option>
+      <option value="Sampath">Sampath</option>
+      <option value="Wilson">Wilson</option>
+    </select>
+  </div>
+</header>
+
+<!-- ═══════════════════════════ MAIN ═══════════════════════════════════════ -->
+<main>
+  <div id="error-banner" class="hidden"></div>
+  <div id="loading">載入中</div>
+
+  <div id="content" class="hidden">
+
+    <!-- 247as 環境 -->
+    <section class="env-section">
+      <h2>247as 環境</h2>
+      <div class="table-wrapper">
+        <table class="url-table" id="table-247as">
+          <colgroup>
+            <col class="col-currency">
+            <col class="col-field"><col class="col-field"><col class="col-field"><col class="col-field">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>幣別</th>
+              <th>aggregatorPage</th>
+              <th>gamePage</th>
+              <th>download url</th>
+              <th>download base64 url</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-247as"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 1688 環境 -->
+    <section class="env-section">
+      <h2>1688 環境</h2>
+      <div class="table-wrapper">
+        <table class="url-table" id="table-1688">
+          <colgroup>
+            <col class="col-currency">
+            <col class="col-field"><col class="col-field"><col class="col-field"><col class="col-field">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>幣別</th>
+              <th>aggregatorPage</th>
+              <th>gamePage</th>
+              <th>download url</th>
+              <th>download base64 url</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-1688"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 操作記錄 -->
+    <section class="history-section">
+      <h2>操作記錄</h2>
+      <div class="table-wrapper">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>時間 (UTC+8)</th>
+              <th>操作者</th>
+              <th>環境</th>
+              <th>幣別</th>
+              <th>欄位</th>
+              <th>URL 變更</th>
+            </tr>
+          </thead>
+          <tbody id="history-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </div><!-- #content -->
+</main>
+
+<!-- ═══════════════════════════ MODAL ══════════════════════════════════════ -->
+<div id="confirm-modal" class="modal hidden">
+  <div class="modal-overlay" id="modal-overlay"></div>
+  <div class="modal-dialog">
+    <h3>確認 Deploy</h3>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-buttons">
+      <button class="btn-cancel" id="btn-cancel">取消</button>
+      <button class="btn-ok"     id="btn-ok">確認 Deploy</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ SCRIPT ═════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ── constants ────────────────────────────────────────────────────────────────
+const FIELDS      = ['aggregatorPage','gamePage','downloadUrl','downloadBase64Url'];
+const CURRENCIES  = ['global','RB','NPR','XX','BT'];
+const ENVIRONMENTS= ['247as','1688'];
+const FIELD_LABELS= {
+  aggregatorPage:   'aggregatorPage',
+  gamePage:         'gamePage',
+  downloadUrl:      'download url',
+  downloadBase64Url:'download base64 url',
+};
+
+// ── state ────────────────────────────────────────────────────────────────────
+let appData       = null;
+let pendingDeploy = null;
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+function esc(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+function nested(obj, ...keys) {
+  let cur = obj;
+  for (const k of keys) {
+    if (cur == null || typeof cur !== 'object') return null;
+    cur = cur[k];
+  }
+  return cur ?? null;
+}
+
+function toast(msg, isErr = false) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + (isErr ? 'toast-err' : 'toast-ok');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3100);
+}
+
+function fmtTimestamp(iso) {
+  try {
+    // SQLite stores UTC ISO strings (may lack Z)
+    const d = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
+    return d.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
+  } catch { return iso; }
+}
+
+// ── data fetching ─────────────────────────────────────────────────────────────
+async function loadData() {
+  setLoading(true);
+  try {
+    const res = await fetch('/api/data');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    appData = await res.json();
+
+    if (appData.errors) {
+      showBanner('GitLab 連線異常：' + Object.entries(appData.errors)
+        .map(([k,v]) => `${k}: ${v}`).join(' | '));
+    } else {
+      hideBanner();
+    }
+
+    renderAll();
+  } catch (e) {
+    showBanner('無法載入資料：' + e.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function loadHistory() {
+  try {
+    const res  = await fetch('/api/history');
+    const data = await res.json();
+    renderHistory(data.history || []);
+  } catch (e) {
+    console.warn('history load failed', e);
+  }
+}
+
+// ── render ────────────────────────────────────────────────────────────────────
+function renderAll() {
+  document.getElementById('content').classList.remove('hidden');
+  ENVIRONMENTS.forEach(renderEnvTable);
+}
+
+function renderEnvTable(env) {
+  const tbody = document.getElementById(`tbody-${env}`);
+  tbody.innerHTML = '';
+
+  CURRENCIES.forEach(currency => {
+    const usingRow  = document.createElement('tr');
+    const backupRow = document.createElement('tr');
+    usingRow.className  = 'using-row';
+    backupRow.className = 'backup-row';
+
+    // currency cell — rowspan 2
+    const ccell = document.createElement('td');
+    ccell.className = 'currency-cell';
+    ccell.rowSpan   = 2;
+    ccell.textContent = currency;
+    usingRow.appendChild(ccell);
+
+    FIELDS.forEach(field => {
+      const avail = nested(appData, 'availability', env, currency, field);
+
+      // ── using cell ──────────────────────────────────────────────────────
+      const uc = document.createElement('td');
+      if (!avail) {
+        uc.className = 'using-cell na-cell';
+        uc.textContent = '—';
+      } else {
+        uc.className = 'using-cell';
+        const usingUrl   = nested(appData, 'using_urls',  env, currency, field);
+        const expiredList = nested(appData, 'expired_urls', env, currency, field) || [];
+
+        const uDiv = document.createElement('div');
+        uDiv.className   = 'using-url';
+        uDiv.textContent = usingUrl || '—';
+        uc.appendChild(uDiv);
+
+        expiredList.forEach(eu => {
+          const eDiv = document.createElement('div');
+          eDiv.className   = 'expired-url';
+          eDiv.textContent = eu;
+          uc.appendChild(eDiv);
+        });
+      }
+      usingRow.appendChild(uc);
+
+      // ── backup cell ─────────────────────────────────────────────────────
+      const bc = document.createElement('td');
+      if (!avail) {
+        bc.className  = 'backup-cell na-cell';
+        bc.textContent = '—';
+      } else {
+        bc.className = 'backup-cell';
+
+        const backupUrl = nested(appData, 'backup_urls', env, currency, field) || '';
+        const group     = document.createElement('div');
+        group.className = 'input-group';
+
+        const inp = document.createElement('input');
+        inp.type        = 'text';
+        inp.className   = 'backup-input';
+        inp.value       = backupUrl;
+        inp.placeholder = '輸入 Backup URL…';
+        inp.dataset.env      = env;
+        inp.dataset.currency = currency;
+        inp.dataset.field    = field;
+        inp.addEventListener('input', debounce(onBackupInput, 600));
+
+        const btn = document.createElement('button');
+        btn.className   = 'deploy-btn';
+        btn.textContent = 'Deploy';
+        btn.dataset.env      = env;
+        btn.dataset.currency = currency;
+        btn.dataset.field    = field;
+        btn.addEventListener('click', onDeployClick);
+
+        group.appendChild(inp);
+        group.appendChild(btn);
+        bc.appendChild(group);
+      }
+      backupRow.appendChild(bc);
+    });
+
+    tbody.appendChild(usingRow);
+    tbody.appendChild(backupRow);
+  });
+}
+
+function renderHistory(list) {
+  const tbody = document.getElementById('history-tbody');
+  tbody.innerHTML = '';
+
+  if (!list.length) {
+    const tr = document.createElement('tr');
+    tr.className = 'empty-row';
+    const td = document.createElement('td');
+    td.colSpan = 6;
+    td.textContent = '尚無操作記錄';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+
+  list.forEach(rec => {
+    const tr = document.createElement('tr');
+
+    [
+      fmtTimestamp(rec.timestamp),
+      rec.operator,
+      rec.environment,
+      rec.currency,
+      FIELD_LABELS[rec.field] || rec.field,
+    ].forEach(val => {
+      const td = document.createElement('td');
+      td.textContent = val;
+      tr.appendChild(td);
+    });
+
+    // URL change cell
+    const td = document.createElement('td');
+    td.className = 'url-change-cell';
+
+    const oldS  = document.createElement('span');
+    oldS.className   = 'old-url';
+    oldS.textContent = rec.old_url || '（無）';
+
+    const arr   = document.createElement('span');
+    arr.className   = 'arrow';
+    arr.textContent = '→';
+
+    const newS  = document.createElement('span');
+    newS.className   = 'new-url';
+    newS.textContent = rec.new_url;
+
+    td.appendChild(oldS);
+    td.appendChild(arr);
+    td.appendChild(newS);
+    tr.appendChild(td);
+
+    tbody.appendChild(tr);
+  });
+}
+
+// ── backup auto-save ──────────────────────────────────────────────────────────
+async function onBackupInput(e) {
+  const inp = e.target;
+  const { env, currency, field } = inp.dataset;
+  try {
+    const res = await fetch('/api/backup', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ environment: env, currency, field, url: inp.value }),
+    });
+    if (res.ok) {
+      inp.classList.add('saved');
+      setTimeout(() => inp.classList.remove('saved'), 1200);
+    }
+  } catch (err) {
+    console.warn('backup save failed', err);
+  }
+}
+
+// ── deploy flow ───────────────────────────────────────────────────────────────
+function onDeployClick(e) {
+  const btn = e.currentTarget;
+  const { env, currency, field } = btn.dataset;
+  const inp       = btn.parentElement.querySelector('.backup-input');
+  const backupUrl = inp.value.trim();
+
+  if (!backupUrl) {
+    toast('請先輸入 Backup URL', true);
+    inp.focus();
+    return;
+  }
+
+  const usingUrl  = nested(appData, 'using_urls', env, currency, field) || '（尚無 URL）';
+  const fieldLabel = FIELD_LABELS[field] || field;
+
+  pendingDeploy = { env, currency, field, backupUrl, usingUrl, fieldLabel };
+  openModal();
+}
+
+function openModal() {
+  const { env, currency, fieldLabel, usingUrl, backupUrl } = pendingDeploy;
+
+  document.getElementById('modal-body').innerHTML = `
+    <p>確認要將
+      <strong>[${esc(env)}][${esc(currency)}][${esc(fieldLabel)}]</strong>
+      的 URL 更新並 push 到 GitLab？
+    </p>
+    <div class="url-change-box">
+      <div class="url-row">
+        <span class="url-label">目前 Using</span>
+        <span class="url-val">${esc(usingUrl)}</span>
+      </div>
+      <div class="url-row">
+        <span class="url-label">更新為</span>
+        <span class="url-val">${esc(backupUrl)}</span>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('confirm-modal').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('confirm-modal').classList.add('hidden');
+  pendingDeploy = null;
+}
+
+async function onConfirmDeploy() {
+  if (!pendingDeploy) return;
+
+  const username = document.getElementById('username-select').value;
+  const { env, currency, field, backupUrl } = pendingDeploy;
+  closeModal();
+  setLoading(true);
+
+  try {
+    const res = await fetch('/api/deploy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        environment: env,
+        currency,
+        field,
+        backup_url: backupUrl,
+        username,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+
+    toast('Deploy 成功！已 push 至 GitLab');
+    await loadData();
+    await loadHistory();
+  } catch (e) {
+    toast('Deploy 失敗：' + e.message, true);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── ui helpers ────────────────────────────────────────────────────────────────
+function setLoading(on) {
+  document.getElementById('loading').classList.toggle('hidden', !on);
+  if (on) document.getElementById('content').classList.add('hidden');
+}
+
+function showBanner(msg) {
+  const b = document.getElementById('error-banner');
+  b.textContent = msg;
+  b.classList.remove('hidden');
+}
+
+function hideBanner() {
+  document.getElementById('error-banner').classList.add('hidden');
+}
+
+// ── event wiring ──────────────────────────────────────────────────────────────
+document.getElementById('btn-ok').addEventListener('click', onConfirmDeploy);
+document.getElementById('btn-cancel').addEventListener('click', closeModal);
+document.getElementById('modal-overlay').addEventListener('click', closeModal);
+
+// ── init ──────────────────────────────────────────────────────────────────────
+(async () => {
+  await loadData();
+  await loadHistory();
+})();
+</script>
+</body>
+</html>
