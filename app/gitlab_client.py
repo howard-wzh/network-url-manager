@@ -8,7 +8,7 @@ import httpx
 GITLAB_BASE = "https://gitlab.com"
 PROJECT_PATH = "cheerstech/report/network-line-settings"
 ENCODED_PROJECT = quote(PROJECT_PATH, safe="")
-BRANCH = "main"
+BRANCH = "master"
 
 
 def _token() -> str:
