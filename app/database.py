@@ -11,6 +11,14 @@ async def init_db() -> None:
     os.makedirs(db_dir, exist_ok=True)
 
     async with aiosqlite.connect(DB_PATH) as db:
+        # Migrate old backup_urls table (single URL with UNIQUE constraint → multi-URL list)
+        async with db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='backup_urls'"
+        ) as cur:
+            row = await cur.fetchone()
+            if row and "UNIQUE" in (row[0] or ""):
+                await db.execute("DROP TABLE backup_urls")
+
         await db.execute("""
             CREATE TABLE IF NOT EXISTS backup_urls (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -18,8 +26,7 @@ async def init_db() -> None:
                 currency    TEXT    NOT NULL,
                 field       TEXT    NOT NULL,
                 url         TEXT    NOT NULL,
-                updated_at  TEXT    NOT NULL,
-                UNIQUE(environment, currency, field)
+                created_at  TEXT    NOT NULL
             )
         """)
         await db.execute("""
@@ -51,39 +58,35 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-# ── backup_urls ────────────────────────────────────────────────────────────────
+# ── backup_urls (multi-URL list per cell) ──────────────────────────────────────
 
 async def get_all_backup_urls() -> dict:
+    """Return nested dict env → currency → field → [{id, url}, ...]."""
     result: dict = {}
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            "SELECT environment, currency, field, url FROM backup_urls"
+            "SELECT id, environment, currency, field, url FROM backup_urls ORDER BY created_at ASC"
         ) as cur:
-            for env, currency, field, url in await cur.fetchall():
-                result.setdefault(env, {}).setdefault(currency, {})[field] = url
+            for row_id, env, currency, field, url in await cur.fetchall():
+                lst = result.setdefault(env, {}).setdefault(currency, {}).setdefault(field, [])
+                lst.append({"id": row_id, "url": url})
     return result
 
 
-async def set_backup_url(env: str, currency: str, field: str, url: str) -> None:
+async def add_backup_url(env: str, currency: str, field: str, url: str) -> int:
+    """Add a backup URL to the list. Returns the new row id."""
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            """
-            INSERT INTO backup_urls (environment, currency, field, url, updated_at)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(environment, currency, field)
-            DO UPDATE SET url = excluded.url, updated_at = excluded.updated_at
-            """,
+        cur = await db.execute(
+            "INSERT INTO backup_urls (environment, currency, field, url, created_at) VALUES (?,?,?,?,?)",
             (env, currency, field, url, _now()),
         )
         await db.commit()
+        return cur.lastrowid
 
 
-async def delete_backup_url(env: str, currency: str, field: str) -> None:
+async def delete_backup_url_by_id(backup_id: int) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            "DELETE FROM backup_urls WHERE environment=? AND currency=? AND field=?",
-            (env, currency, field),
-        )
+        await db.execute("DELETE FROM backup_urls WHERE id=?", (backup_id,))
         await db.commit()
 
 
@@ -171,13 +174,13 @@ async def get_deploy_history(limit: int = 100) -> list[dict]:
             rows = await cur.fetchall()
     return [
         {
-            "timestamp": r[0],
-            "operator":  r[1],
+            "timestamp":   r[0],
+            "operator":    r[1],
             "environment": r[2],
-            "currency":  r[3],
-            "field":     r[4],
-            "old_url":   r[5],
-            "new_url":   r[6],
+            "currency":    r[3],
+            "field":       r[4],
+            "old_url":     r[5],
+            "new_url":     r[6],
         }
         for r in rows
     ]

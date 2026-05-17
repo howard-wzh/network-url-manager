@@ -54,11 +54,10 @@ async def serve_index():
 
 @app.get("/api/data")
 async def get_data():
-    """Return using-URLs (live from GitLab), backup-URLs and expired-URLs (from SQLite)."""
+    """Return using-URLs (live from GitLab), backup-URL lists and expired-URLs (from SQLite)."""
     using_urls: dict = {}
     errors: dict = {}
 
-    # Fetch all four JSON files, capturing individual failures
     gitlab_cache: dict[str, dict] = {}
     for env in ENVIRONMENTS:
         for kind, paths_map in [("env", ENV_FILE_PATHS), ("dl", DL_FILE_PATHS)]:
@@ -80,12 +79,10 @@ async def get_data():
                 if not avail:
                     using_urls[env][currency][field] = None
                     continue
-
                 path = FIELD_PATHS[field].get(currency)
                 if path is None:
                     using_urls[env][currency][field] = None
                     continue
-
                 json_data = env_json if FIELD_SOURCE[field] == "env" else dl_json
                 if json_data is None:
                     using_urls[env][currency][field] = None
@@ -97,43 +94,54 @@ async def get_data():
 
     return {
         "using_urls":   using_urls,
-        "backup_urls":  backup_urls,
+        "backup_urls":  backup_urls,   # {env: {currency: {field: [{id, url}, ...]}}}
         "expired_urls": expired_urls,
         "availability": AVAILABILITY,
         "errors":       errors or None,
     }
 
 
-class BackupUrlRequest(BaseModel):
+# ── backup URL list management ─────────────────────────────────────────────────
+
+class AddBackupRequest(BaseModel):
     environment: str
     currency: str
     field: str
     url: str
 
 
-@app.put("/api/backup")
-async def update_backup(req: BackupUrlRequest):
-    """Persist a backup URL to SQLite (upsert). Send empty url to clear."""
+@app.post("/api/backup")
+async def add_backup(req: AddBackupRequest):
+    """Add a URL to a cell's backup list."""
     _validate(req.environment, req.currency, req.field)
-    stripped = req.url.strip()
-    if stripped:
-        await database.set_backup_url(req.environment, req.currency, req.field, stripped)
-    else:
-        await database.delete_backup_url(req.environment, req.currency, req.field)
+    url = req.url.strip()
+    if not url:
+        raise HTTPException(400, "URL cannot be empty")
+    new_id = await database.add_backup_url(req.environment, req.currency, req.field, url)
+    return {"ok": True, "id": new_id, "url": url}
+
+
+@app.delete("/api/backup/{backup_id}")
+async def delete_backup(backup_id: int):
+    """Remove a URL from the backup list by its id."""
+    await database.delete_backup_url_by_id(backup_id)
     return {"ok": True}
 
+
+# ── deploy ─────────────────────────────────────────────────────────────────────
 
 class DeployRequest(BaseModel):
     environment: str
     currency: str
     field: str
     backup_url: str
+    backup_id: int          # id in backup_urls table — removed after deploy
     username: str
 
 
 @app.post("/api/deploy")
 async def deploy(req: DeployRequest):
-    """Push backup_url to GitLab, record the change, update SQLite."""
+    """Push backup_url to GitLab, record the change, remove the URL from backup list."""
     _validate(req.environment, req.currency, req.field)
 
     if not AVAILABILITY[req.environment][req.currency][req.field]:
@@ -167,10 +175,12 @@ async def deploy(req: DeployRequest):
     except Exception as exc:
         raise HTTPException(500, f"GitLab push failed: {exc}")
 
-    # Persist side-effects
+    # Remove the deployed URL from the backup list
+    await database.delete_backup_url_by_id(req.backup_id)
+
     if old_url:
         await database.add_expired_url(req.environment, req.currency, req.field, old_url)
-    await database.delete_backup_url(req.environment, req.currency, req.field)
+
     await database.add_deploy_history(
         req.username, req.environment, req.currency, req.field, old_url, req.backup_url.strip()
     )
@@ -183,7 +193,7 @@ async def get_history():
     return {"history": await database.get_deploy_history(100)}
 
 
-# ── validation helper ──────────────────────────────────────────────────────────
+# ── validation ─────────────────────────────────────────────────────────────────
 
 def _validate(env: str, currency: str, field: str) -> None:
     if env not in ENVIRONMENTS:

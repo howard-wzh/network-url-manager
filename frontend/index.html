@@ -162,8 +162,59 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
   line-height: 1.45;
 }
 
-/* ── backup input + deploy btn ──────────────────────────────────────────────── */
-.input-group { display: flex; gap: 5px; align-items: center; }
+/* ── backup list (multi-URL) ─────────────────────────────────────────────────── */
+.backup-list { display: flex; flex-direction: column; gap: 3px; margin-bottom: 5px; }
+
+.backup-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #f0f4ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 4px;
+  padding: 3px 5px;
+}
+.backup-item-url {
+  flex: 1;
+  min-width: 0;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 11px;
+  color: #2d3748;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+}
+.backup-item-deploy {
+  flex-shrink: 0;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s;
+}
+.backup-item-deploy:hover { background: #1d4ed8; }
+
+.backup-item-del {
+  flex-shrink: 0;
+  background: none;
+  color: #a0aec0;
+  border: none;
+  padding: 2px 4px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: color .15s, background .15s;
+}
+.backup-item-del:hover { color: #e53e3e; background: #fff5f5; }
+
+/* add-URL row */
+.backup-add-row { display: flex; gap: 4px; }
 
 .backup-input {
   flex: 1;
@@ -174,31 +225,28 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
   font-size: 11.5px;
   font-family: 'SFMono-Regular', Consolas, monospace;
   color: #2d3748;
-  transition: border-color .15s, box-shadow .15s;
   background: #fff;
+  transition: border-color .15s, box-shadow .15s;
 }
 .backup-input:focus {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 2px rgba(59,130,246,.2);
 }
-.backup-input.saved { border-color: #38a169; }
-
-.deploy-btn {
+.backup-add-btn {
   flex-shrink: 0;
-  background: #2563eb;
-  color: #fff;
-  border: none;
-  padding: 4px 10px;
+  background: #fff;
+  color: #2563eb;
+  border: 1px solid #2563eb;
+  padding: 4px 9px;
   border-radius: 4px;
   font-size: 11.5px;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  transition: background .15s, transform .1s;
+  transition: background .15s, color .15s;
 }
-.deploy-btn:hover  { background: #1d4ed8; }
-.deploy-btn:active { transform: scale(.96); }
+.backup-add-btn:hover { background: #2563eb; color: #fff; }
 
 /* ── history section ─────────────────────────────────────────────────────────── */
 .history-section {
@@ -575,36 +623,43 @@ function renderEnvTable(env) {
       // ── backup cell ─────────────────────────────────────────────────────
       const bc = document.createElement('td');
       if (!avail) {
-        bc.className  = 'backup-cell na-cell';
+        bc.className   = 'backup-cell na-cell';
         bc.textContent = '—';
       } else {
         bc.className = 'backup-cell';
 
-        const backupUrl = nested(appData, 'backup_urls', env, currency, field) || '';
-        const group     = document.createElement('div');
-        group.className = 'input-group';
+        // List of saved backup URLs
+        const savedList = nested(appData, 'backup_urls', env, currency, field) || [];
+        const listDiv   = document.createElement('div');
+        listDiv.className = 'backup-list';
+
+        savedList.forEach(item => {
+          listDiv.appendChild(makeBackupItem(env, currency, field, item.id, item.url));
+        });
+        bc.appendChild(listDiv);
+
+        // Add-URL row
+        const addRow = document.createElement('div');
+        addRow.className = 'backup-add-row';
 
         const inp = document.createElement('input');
         inp.type        = 'text';
         inp.className   = 'backup-input';
-        inp.value       = backupUrl;
-        inp.placeholder = '輸入 Backup URL…';
-        inp.dataset.env      = env;
-        inp.dataset.currency = currency;
-        inp.dataset.field    = field;
-        inp.addEventListener('input', debounce(onBackupInput, 600));
+        inp.placeholder = '貼入新 Backup URL…';
 
-        const btn = document.createElement('button');
-        btn.className   = 'deploy-btn';
-        btn.textContent = 'Deploy';
-        btn.dataset.env      = env;
-        btn.dataset.currency = currency;
-        btn.dataset.field    = field;
-        btn.addEventListener('click', onDeployClick);
+        const addBtn = document.createElement('button');
+        addBtn.className   = 'backup-add-btn';
+        addBtn.textContent = '+ 新增';
+        addBtn.addEventListener('click', () => onAddBackup(env, currency, field, inp, listDiv));
 
-        group.appendChild(inp);
-        group.appendChild(btn);
-        bc.appendChild(group);
+        // Also allow Enter key to add
+        inp.addEventListener('keydown', e => {
+          if (e.key === 'Enter') onAddBackup(env, currency, field, inp, listDiv);
+        });
+
+        addRow.appendChild(inp);
+        addRow.appendChild(addBtn);
+        bc.appendChild(addRow);
       }
       backupRow.appendChild(bc);
     });
@@ -669,42 +724,73 @@ function renderHistory(list) {
   });
 }
 
-// ── backup auto-save ──────────────────────────────────────────────────────────
-async function onBackupInput(e) {
-  const inp = e.target;
-  const { env, currency, field } = inp.dataset;
+// ── backup list helpers ───────────────────────────────────────────────────────
+
+function makeBackupItem(env, currency, field, id, url) {
+  const row = document.createElement('div');
+  row.className    = 'backup-item';
+  row.dataset.id   = id;
+
+  const urlSpan = document.createElement('span');
+  urlSpan.className   = 'backup-item-url';
+  urlSpan.textContent = url;
+  urlSpan.title       = url;
+
+  const deployBtn = document.createElement('button');
+  deployBtn.className   = 'backup-item-deploy';
+  deployBtn.textContent = 'Deploy';
+  deployBtn.addEventListener('click', () => onDeployClick(env, currency, field, id, url));
+
+  const delBtn = document.createElement('button');
+  delBtn.className   = 'backup-item-del';
+  delBtn.textContent = '×';
+  delBtn.title       = '移除';
+  delBtn.addEventListener('click', () => onDeleteBackup(id, row));
+
+  row.appendChild(urlSpan);
+  row.appendChild(deployBtn);
+  row.appendChild(delBtn);
+  return row;
+}
+
+async function onAddBackup(env, currency, field, inp, listDiv) {
+  const url = inp.value.trim();
+  if (!url) { inp.focus(); return; }
+
+  inp.disabled = true;
   try {
     const res = await fetch('/api/backup', {
-      method: 'PUT',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ environment: env, currency, field, url: inp.value }),
+      body: JSON.stringify({ environment: env, currency, field, url }),
     });
-    if (res.ok) {
-      inp.classList.add('saved');
-      setTimeout(() => inp.classList.remove('saved'), 1200);
-    }
-  } catch (err) {
-    console.warn('backup save failed', err);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    listDiv.appendChild(makeBackupItem(env, currency, field, data.id, data.url));
+    inp.value = '';
+  } catch (e) {
+    toast('新增失敗：' + e.message, true);
+  } finally {
+    inp.disabled = false;
+    inp.focus();
+  }
+}
+
+async function onDeleteBackup(id, rowEl) {
+  try {
+    const res = await fetch(`/api/backup/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    rowEl.remove();
+  } catch (e) {
+    toast('刪除失敗：' + e.message, true);
   }
 }
 
 // ── deploy flow ───────────────────────────────────────────────────────────────
-function onDeployClick(e) {
-  const btn = e.currentTarget;
-  const { env, currency, field } = btn.dataset;
-  const inp       = btn.parentElement.querySelector('.backup-input');
-  const backupUrl = inp.value.trim();
-
-  if (!backupUrl) {
-    toast('請先輸入 Backup URL', true);
-    inp.focus();
-    return;
-  }
-
-  const usingUrl  = nested(appData, 'using_urls', env, currency, field) || '（尚無 URL）';
+function onDeployClick(env, currency, field, backupId, backupUrl) {
+  const usingUrl   = nested(appData, 'using_urls', env, currency, field) || '（尚無 URL）';
   const fieldLabel = FIELD_LABELS[field] || field;
-
-  pendingDeploy = { env, currency, field, backupUrl, usingUrl, fieldLabel };
+  pendingDeploy = { env, currency, field, backupId, backupUrl, usingUrl, fieldLabel };
   openModal();
 }
 
@@ -740,7 +826,7 @@ async function onConfirmDeploy() {
   if (!pendingDeploy) return;
 
   const username = document.getElementById('username-select').value;
-  const { env, currency, field, backupUrl } = pendingDeploy;
+  const { env, currency, field, backupId, backupUrl } = pendingDeploy;
   closeModal();
   setLoading(true);
 
@@ -753,6 +839,7 @@ async function onConfirmDeploy() {
         currency,
         field,
         backup_url: backupUrl,
+        backup_id:  backupId,
         username,
       }),
     });
