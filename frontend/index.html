@@ -756,9 +756,48 @@ function makeBackupItem(env, currency, field, id, url) {
   return row;
 }
 
+function normalizeUrl(raw) {
+  let s = raw.trim();
+  if (!s) return '';
+  // Auto-prepend https:// if no scheme
+  if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
+  return s;
+}
+
+function validateUrl(url) {
+  try {
+    const u = new URL(url);
+    // Must be http or https
+    if (!/^https?:$/.test(u.protocol)) return 'Protocol 必須是 http 或 https';
+    // Hostname must contain at least one dot and no spaces
+    if (!u.hostname.includes('.')) return '域名格式不正確（缺少 .）';
+    if (/\s/.test(u.hostname))      return '域名不能包含空格';
+    // Each label must be non-empty
+    if (u.hostname.split('.').some(p => p === '')) return '域名格式不正確（多餘的 .）';
+    return null; // valid
+  } catch {
+    return 'URL 格式不正確';
+  }
+}
+
 async function onAddBackup(env, currency, field, inp, listDiv) {
-  const url = inp.value.trim();
-  if (!url) { inp.focus(); return; }
+  const raw = inp.value.trim();
+  if (!raw) { inp.focus(); return; }
+
+  const url = normalizeUrl(raw);
+  const err = validateUrl(url);
+  if (err) {
+    inp.style.borderColor = '#e53e3e';
+    inp.title = err;
+    toast('格式錯誤：' + err, true);
+    inp.focus();
+    return;
+  }
+  inp.style.borderColor = '';
+  inp.title = '';
+
+  // Show normalized URL back to user
+  inp.value = url;
 
   inp.disabled = true;
   try {
