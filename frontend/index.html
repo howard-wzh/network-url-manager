@@ -757,28 +757,42 @@ function makeBackupItem(env, currency, field, id, url) {
 }
 
 /**
- * Extract hostname from whatever the user typed:
- *   "abc.com"  /  "https://abc.com"  /  "abc.com/some/path"
- * Returns just "abc.com"
+ * Extract host (hostname + optional :port) from whatever the user typed.
+ *   "abc.com"           → "abc.com"
+ *   "abc.com:8080"      → "abc.com:8080"
+ *   "https://abc.com:8080/path" → "abc.com:8080"
  */
 function extractHostname(raw) {
   let s = raw.trim();
   s = s.replace(/^https?:\/\//i, '');   // strip scheme
   s = s.split('/')[0];                   // strip path
   s = s.split('?')[0].split('#')[0];     // strip query/hash
-  return s;
+  return s;   // may be "host" or "host:port"
 }
 
 /**
- * Validate hostname only (no scheme, no path).
+ * Validate host (hostname[:port]).
  * Returns error string or null if valid.
  */
-function validateHostname(hostname) {
-  if (!hostname)                                      return '請輸入域名';
-  if (/\s/.test(hostname))                            return '域名不能包含空格';
+function validateHostname(host) {
+  if (!host)             return '請輸入域名';
+  if (/\s/.test(host))   return '域名不能包含空格';
+
+  // Split into hostname and optional port
+  const colonParts = host.split(':');
+  if (colonParts.length > 2) return '域名格式不正確（多個 :）';
+  const [hostname, port] = colonParts;
+
   if (!hostname.includes('.'))                        return '域名格式不正確（缺少 .）';
   if (hostname.split('.').some(p => p === ''))        return '域名格式不正確（多餘的 .）';
   if (!/^[a-zA-Z0-9.\-]+$/.test(hostname))           return '域名包含不合法字元';
+
+  if (port !== undefined) {
+    if (!/^\d+$/.test(port))                          return 'Port 必須為數字';
+    const n = parseInt(port, 10);
+    if (n < 1 || n > 65535)                           return 'Port 範圍須在 1–65535';
+  }
+
   return null;
 }
 
