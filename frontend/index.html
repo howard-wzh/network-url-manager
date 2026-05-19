@@ -648,7 +648,7 @@ function renderEnvTable(env) {
         const inp = document.createElement('input');
         inp.type        = 'text';
         inp.className   = 'backup-input';
-        inp.placeholder = '貼入新 Backup URL…';
+        inp.placeholder = '輸入域名，如：abc.example.com';
 
         const addBtn = document.createElement('button');
         addBtn.className   = 'backup-add-btn';
@@ -756,62 +756,67 @@ function makeBackupItem(env, currency, field, id, url) {
   return row;
 }
 
-function normalizeUrl(raw) {
+/**
+ * Extract hostname from whatever the user typed:
+ *   "abc.com"  /  "https://abc.com"  /  "abc.com/some/path"
+ * Returns just "abc.com"
+ */
+function extractHostname(raw) {
   let s = raw.trim();
-  if (!s) return '';
-  if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
+  s = s.replace(/^https?:\/\//i, '');   // strip scheme
+  s = s.split('/')[0];                   // strip path
+  s = s.split('?')[0].split('#')[0];     // strip query/hash
   return s;
 }
 
-function validateUrl(inputUrl, usingUrl) {
-  // ── basic structure check ──────────────────────────────────────────────────
-  let u;
-  try {
-    u = new URL(inputUrl);
-  } catch {
-    return 'URL 格式不正確';
-  }
-  if (!/^https?:$/.test(u.protocol))            return 'Protocol 必須是 https://';
-  if (!u.hostname.includes('.'))                return '域名格式不正確（缺少 .）';
-  if (/\s/.test(u.hostname))                    return '域名不能包含空格';
-  if (u.hostname.split('.').some(p => p === ''))return '域名格式不正確（多餘的 .）';
+/**
+ * Validate hostname only (no scheme, no path).
+ * Returns error string or null if valid.
+ */
+function validateHostname(hostname) {
+  if (!hostname)                                      return '請輸入域名';
+  if (/\s/.test(hostname))                            return '域名不能包含空格';
+  if (!hostname.includes('.'))                        return '域名格式不正確（缺少 .）';
+  if (hostname.split('.').some(p => p === ''))        return '域名格式不正確（多餘的 .）';
+  if (!/^[a-zA-Z0-9.\-]+$/.test(hostname))           return '域名包含不合法字元';
+  return null;
+}
 
-  // ── compare path/query/hash against current Using URL ─────────────────────
+/**
+ * Build the complete URL:
+ *   https://{hostname}{path from usingUrl}
+ */
+function buildUrl(hostname, usingUrl) {
+  let path = '';
   if (usingUrl && usingUrl.startsWith('http')) {
-    let ref;
-    try { ref = new URL(usingUrl); } catch { return null; }
-
-    const refSuffix   = ref.pathname + ref.search + ref.hash;
-    const inputSuffix = u.pathname   + u.search   + u.hash;
-
-    if (refSuffix !== inputSuffix) {
-      return `路徑格式不符\n` +
-             `  預期：${refSuffix || '/'}\n` +
-             `  輸入：${inputSuffix || '/'}`;
-    }
+    try {
+      const ref = new URL(usingUrl);
+      path = ref.pathname + ref.search + ref.hash;
+    } catch {}
   }
-
-  return null; // valid
+  return `https://${hostname}${path}`;
 }
 
 async function onAddBackup(env, currency, field, inp, listDiv) {
   const raw = inp.value.trim();
   if (!raw) { inp.focus(); return; }
 
-  const url      = normalizeUrl(raw);
-  const usingUrl = nested(appData, 'using_urls', env, currency, field);
-  const err      = validateUrl(url, usingUrl);
+  const hostname = extractHostname(raw);
+  const err      = validateHostname(hostname);
 
   if (err) {
     inp.style.borderColor = '#e53e3e';
     inp.title = err;
-    toast('格式錯誤：' + err.split('\n')[0], true);
+    toast('格式錯誤：' + err, true);
     inp.focus();
     return;
   }
   inp.style.borderColor = '';
   inp.title = '';
-  inp.value = url;   // show normalized result
+
+  const usingUrl = nested(appData, 'using_urls', env, currency, field);
+  const url      = buildUrl(hostname, usingUrl);
+  inp.value      = url;   // show the completed URL
 
   inp.disabled = true;
   try {
