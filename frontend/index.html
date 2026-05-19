@@ -531,8 +531,11 @@ function toast(msg, isErr = false) {
 
 function fmtTimestamp(iso) {
   try {
-    // SQLite stores UTC ISO strings (may lack Z)
-    const d = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
+    // Python isoformat() gives "2024-01-15T10:30:00.123456+00:00"
+    // Normalize to a form new Date() can parse reliably
+    const normalized = iso.replace('+00:00', 'Z').replace(/\.\d+Z$/, 'Z');
+    const d = new Date(normalized);
+    if (isNaN(d.getTime())) return iso;
     return d.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
   } catch { return iso; }
 }
