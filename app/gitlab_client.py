@@ -5,10 +5,13 @@ from urllib.parse import quote
 
 import httpx
 
-GITLAB_BASE = "https://gitlab.com"
-PROJECT_PATH = "cheerstech/report/network-line-settings"
+# All configurable via environment variables
+GITLAB_BASE  = os.environ.get("GITLAB_URL",     "https://gitlab.com").rstrip("/")
+_raw_project = os.environ.get("GITLAB_PROJECT",  "cheerstech/report/network-line-settings")
+PROJECT_PATH = _raw_project.removesuffix(".git")   # strip .git suffix if present
+BRANCH       = os.environ.get("GITLAB_BRANCH",   "master")
+
 ENCODED_PROJECT = quote(PROJECT_PATH, safe="")
-BRANCH = "master"
 
 
 def _token() -> str:
@@ -27,7 +30,7 @@ def _file_url(file_path: str) -> str:
 
 async def get_file(file_path: str) -> dict:
     """Fetch *file_path* from GitLab and return its parsed JSON content."""
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=30.0, verify=False) as client:
         resp = await client.get(
             _file_url(file_path),
             params={"ref": BRANCH},
@@ -39,9 +42,9 @@ async def get_file(file_path: str) -> dict:
 
 
 async def update_file(file_path: str, content: dict, commit_message: str) -> None:
-    """Overwrite *file_path* in GitLab with *content* and commit with *commit_message*."""
+    """Overwrite *file_path* in GitLab with *content* and commit."""
     content_str = json.dumps(content, indent=2, ensure_ascii=False)
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=30.0, verify=False) as client:
         resp = await client.put(
             _file_url(file_path),
             headers={
