@@ -62,8 +62,8 @@ FIELD_PATHS: dict[str, dict[str, list[str] | None]] = {
         "XX":     ["dlBase64ByCurrency", "XX"],
         "BT":     ["dlBase64ByCurrency", "BT"],
     },
-    "testUrl": {                    # temporary — reads {"testUrl": "..."} from env/test.json
-        "global": ["testUrl"],
+    "testUrl": {                    # temporary — reads envObj.report from env/test.json
+        "global": ["envObj", "report"],
         "RB":     None,
         "NPR":    None,
         "XX":     None,
