@@ -100,7 +100,7 @@ main { padding: 20px 20px 40px; max-width: 1900px; margin: 0 auto; }
 
 /* column widths */
 .url-table colgroup col.col-currency { width: 72px; }
-.url-table colgroup col.col-field    { width: calc((100% - 72px) / 4); }
+.url-table colgroup col.col-field    { width: calc((100% - 72px) / 5); }
 
 .url-table thead th {
   background: #dde4ed;
@@ -405,7 +405,7 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
         <table class="url-table" id="table-247as">
           <colgroup>
             <col class="col-currency">
-            <col class="col-field"><col class="col-field"><col class="col-field"><col class="col-field">
+            <col class="col-field"><col class="col-field"><col class="col-field"><col class="col-field"><col class="col-field">
           </colgroup>
           <thead>
             <tr>
@@ -414,6 +414,7 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
               <th>gamePage</th>
               <th>download url</th>
               <th>download base64 url</th>
+              <th>testUrl (temp)</th>
             </tr>
           </thead>
           <tbody id="tbody-247as"></tbody>
@@ -428,7 +429,7 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
         <table class="url-table" id="table-1688">
           <colgroup>
             <col class="col-currency">
-            <col class="col-field"><col class="col-field"><col class="col-field"><col class="col-field">
+            <col class="col-field"><col class="col-field"><col class="col-field"><col class="col-field"><col class="col-field">
           </colgroup>
           <thead>
             <tr>
@@ -437,9 +438,34 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
               <th>gamePage</th>
               <th>download url</th>
               <th>download base64 url</th>
+              <th>testUrl (temp)</th>
             </tr>
           </thead>
           <tbody id="tbody-1688"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- test 環境（臨時，測試地端 GitLab push 用） -->
+    <section class="env-section">
+      <h2>test 環境（臨時測試）</h2>
+      <div class="table-wrapper">
+        <table class="url-table" id="table-test">
+          <colgroup>
+            <col class="col-currency">
+            <col class="col-field"><col class="col-field"><col class="col-field"><col class="col-field"><col class="col-field">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>幣別</th>
+              <th>aggregatorPage</th>
+              <th>gamePage</th>
+              <th>download url</th>
+              <th>download base64 url</th>
+              <th>testUrl (temp)</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-test"></tbody>
         </table>
       </div>
     </section>
@@ -485,14 +511,15 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
 'use strict';
 
 // ── constants ────────────────────────────────────────────────────────────────
-const FIELDS      = ['aggregatorPage','gamePage','downloadUrl','downloadBase64Url'];
+const FIELDS      = ['aggregatorPage','gamePage','downloadUrl','downloadBase64Url','testUrl'];
 const CURRENCIES  = ['global','RB','NPR','XX','BT'];
-const ENVIRONMENTS= ['247as','1688'];
+const ENVIRONMENTS= ['247as','1688','test'];
 const FIELD_LABELS= {
   aggregatorPage:   'aggregatorPage',
   gamePage:         'gamePage',
   downloadUrl:      'download url',
   downloadBase64Url:'download base64 url',
+  testUrl:          'testUrl (temp)',
 };
 
 // ── state ────────────────────────────────────────────────────────────────────
