@@ -256,12 +256,15 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
   color: #718096;
   border: none;
   padding: 2px 4px;
-  font-size: 12px;
+  line-height: 1;
   cursor: pointer;
   border-radius: 3px;
   transition: color .15s, background .15s;
+  display: inline-flex;
+  align-items: center;
 }
 .backup-item-edit:hover { color: #2563eb; background: #ebf4ff; }
+.backup-item-edit svg { display: block; }
 
 .backup-item-deploy {
   flex-shrink: 0;
@@ -642,10 +645,8 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
   <div class="modal-dialog" style="max-width:500px;">
     <h3>編輯備用域名</h3>
     <div class="modal-body">
-      <label class="form-label">域名 URL</label>
-      <input type="text" id="edit-url-input" class="form-input" placeholder="https://...">
-      <label class="form-label">備註 <span style="color:#a0aec0;font-weight:400;">（選填）</span></label>
-      <textarea id="edit-note-input" class="form-textarea" placeholder="說明此域名的用途或來源…"></textarea>
+      <label class="form-label">備註說明</label>
+      <textarea id="edit-note-input" class="form-textarea" placeholder="說明此域名的用途或來源…" style="min-height:100px;"></textarea>
     </div>
     <div class="modal-buttons">
       <button class="btn-cancel" id="edit-btn-cancel">取消</button>
@@ -998,9 +999,15 @@ function makeBackupItem(env, currency, field, id, url, note, canEdit) {
 
   if (canEdit) {
     const editBtn = document.createElement('button');
-    editBtn.className   = 'backup-item-edit';
-    editBtn.title       = '編輯';
-    editBtn.textContent = '✏';
+    editBtn.className = 'backup-item-edit';
+    editBtn.title     = '編輯備註';
+    editBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+      <line x1="10" y1="9" x2="8" y2="9"/>
+    </svg>`;
     editBtn.addEventListener('click', () => openEditModal(id, url, note, row));
     row.appendChild(editBtn);
 
@@ -1110,53 +1117,49 @@ async function onDeleteBackup(id, rowEl) {
 
 // ── edit backup modal ─────────────────────────────────────────────────────────
 let editingRow = null;
+let editingUrl = null;
 
 function openEditModal(id, url, note, rowEl) {
   editingId  = id;
   editingRow = rowEl;
-  document.getElementById('edit-url-input').value  = url;
+  editingUrl = url;
   document.getElementById('edit-note-input').value = note;
   document.getElementById('edit-modal').classList.remove('hidden');
-  setTimeout(() => document.getElementById('edit-url-input').focus(), 50);
+  setTimeout(() => document.getElementById('edit-note-input').focus(), 50);
 }
 
 function closeEditModal() {
   editingId  = null;
   editingRow = null;
+  editingUrl = null;
   document.getElementById('edit-modal').classList.add('hidden');
 }
 
 async function onSaveEdit() {
   if (editingId == null) return;
-  const url  = document.getElementById('edit-url-input').value.trim();
   const note = document.getElementById('edit-note-input').value.trim();
-  if (!url) { toast('URL 不能為空', true); return; }
 
   try {
     const res = await apiFetch(`/api/backup/${editingId}`, {
       method:  'PUT',
       headers: {'Content-Type': 'application/json'},
-      body:    JSON.stringify({url, note}),
+      body:    JSON.stringify({url: editingUrl, note}),
     });
     if (!res) return;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    // Update DOM in-place
+    // Refresh info icon in-place
     if (editingRow) {
-      const urlSpan = editingRow.querySelector('.backup-item-url');
-      if (urlSpan) { urlSpan.textContent = url; urlSpan.title = url; }
-
-      // Refresh info icon
       const oldInfo = editingRow.querySelector('.info-icon');
       if (oldInfo) oldInfo.remove();
       if (note) {
-        const urlSpanRef = editingRow.querySelector('.backup-item-url');
-        if (urlSpanRef) urlSpanRef.insertAdjacentElement('afterend', makeInfoIcon(note));
+        const urlSpan = editingRow.querySelector('.backup-item-url');
+        if (urlSpan) urlSpan.insertAdjacentElement('afterend', makeInfoIcon(note));
       }
     }
 
     closeEditModal();
-    toast('已儲存');
+    toast('備註已儲存');
   } catch (e) {
     toast('儲存失敗：' + e.message, true);
   }
