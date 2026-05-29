@@ -1,14 +1,20 @@
 import copy
 import os
+import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
+from starlette.middleware.sessions import SessionMiddleware
 
 from . import database, gitlab_client
+from .auth import (
+    get_session_user, hash_password, require_admin,
+    require_auth, require_rw, verify_password,
+)
 from .config import (
     AVAILABILITY, CURRENCIES, ENVIRONMENTS, FIELDS,
     FIELD_LABELS, FIELD_PATHS, FIELD_SOURCE,
@@ -16,6 +22,7 @@ from .config import (
 )
 
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+SECRET_KEY = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 
 
 @asynccontextmanager
@@ -25,6 +32,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="URL Manager", lifespan=lifespan)
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, max_age=None)
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
@@ -45,15 +53,57 @@ def set_nested(data: dict, path: list[str], value: str) -> None:
     cur[path[-1]] = value
 
 
-# ── routes ─────────────────────────────────────────────────────────────────────
+# ── pages ──────────────────────────────────────────────────────────────────────
 
 @app.get("/")
-async def serve_index():
+async def serve_index(request: Request):
+    if not get_session_user(request):
+        return RedirectResponse(url="/login", status_code=302)
     return FileResponse(FRONTEND_DIR / "index.html")
 
 
+@app.get("/login")
+async def serve_login(request: Request):
+    if get_session_user(request):
+        return RedirectResponse(url="/", status_code=302)
+    return FileResponse(FRONTEND_DIR / "login.html")
+
+
+# ── auth API ───────────────────────────────────────────────────────────────────
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+@app.post("/api/login")
+async def api_login(req: LoginRequest, request: Request):
+    user = await database.get_user_by_username(req.username.strip())
+    if not user or not verify_password(req.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="帳號或密碼錯誤")
+    request.session["user"] = {
+        "id":       user["id"],
+        "username": user["username"],
+        "role":     user["role"],
+    }
+    return {"ok": True, "username": user["username"], "role": user["role"]}
+
+
+@app.post("/api/logout")
+async def api_logout(request: Request):
+    request.session.clear()
+    return {"ok": True}
+
+
+@app.get("/api/me")
+async def api_me(user: dict = Depends(require_auth)):
+    return {"username": user["username"], "role": user["role"]}
+
+
+# ── data ───────────────────────────────────────────────────────────────────────
+
 @app.get("/api/data")
-async def get_data():
+async def get_data(user: dict = Depends(require_auth)):
     """Return using-URLs (live from GitLab), backup-URL lists and expired-URLs (from SQLite)."""
     using_urls: dict = {}
     errors: dict = {}
@@ -91,13 +141,16 @@ async def get_data():
 
     backup_urls  = await database.get_all_backup_urls()
     expired_urls = await database.get_all_expired_urls()
+    using_notes  = await database.get_using_notes()
 
     return {
         "using_urls":   using_urls,
-        "backup_urls":  backup_urls,   # {env: {currency: {field: [{id, url}, ...]}}}
+        "backup_urls":  backup_urls,
         "expired_urls": expired_urls,
+        "using_notes":  using_notes,
         "availability": AVAILABILITY,
         "errors":       errors or None,
+        "current_user": {"username": user["username"], "role": user["role"]},
     }
 
 
@@ -105,25 +158,42 @@ async def get_data():
 
 class AddBackupRequest(BaseModel):
     environment: str
-    currency: str
-    field: str
-    url: str
+    currency:    str
+    field:       str
+    url:         str
+    note:        str = ""
 
 
 @app.post("/api/backup")
-async def add_backup(req: AddBackupRequest):
-    """Add a URL to a cell's backup list."""
+async def add_backup(req: AddBackupRequest, _user: dict = Depends(require_rw)):
     _validate(req.environment, req.currency, req.field)
     url = req.url.strip()
     if not url:
         raise HTTPException(400, "URL cannot be empty")
-    new_id = await database.add_backup_url(req.environment, req.currency, req.field, url)
-    return {"ok": True, "id": new_id, "url": url}
+    new_id = await database.add_backup_url(
+        req.environment, req.currency, req.field, url, req.note.strip()
+    )
+    return {"ok": True, "id": new_id, "url": url, "note": req.note.strip()}
+
+
+class UpdateBackupRequest(BaseModel):
+    url:  str
+    note: str = ""
+
+
+@app.put("/api/backup/{backup_id}")
+async def update_backup(
+    backup_id: int, req: UpdateBackupRequest, _user: dict = Depends(require_rw)
+):
+    url = req.url.strip()
+    if not url:
+        raise HTTPException(400, "URL cannot be empty")
+    await database.update_backup_url(backup_id, url, req.note.strip())
+    return {"ok": True, "url": url, "note": req.note.strip()}
 
 
 @app.delete("/api/backup/{backup_id}")
-async def delete_backup(backup_id: int):
-    """Remove a URL from the backup list by its id."""
+async def delete_backup(backup_id: int, _user: dict = Depends(require_rw)):
     await database.delete_backup_url_by_id(backup_id)
     return {"ok": True}
 
@@ -132,16 +202,14 @@ async def delete_backup(backup_id: int):
 
 class DeployRequest(BaseModel):
     environment: str
-    currency: str
-    field: str
-    backup_url: str
-    backup_id: int          # id in backup_urls table — removed after deploy
-    username: str
+    currency:    str
+    field:       str
+    backup_url:  str
+    backup_id:   int
 
 
 @app.post("/api/deploy")
-async def deploy(req: DeployRequest):
-    """Push backup_url to GitLab, record the change, remove the URL from backup list."""
+async def deploy(req: DeployRequest, user: dict = Depends(require_rw)):
     _validate(req.environment, req.currency, req.field)
 
     if not AVAILABILITY[req.environment][req.currency][req.field]:
@@ -157,40 +225,106 @@ async def deploy(req: DeployRequest):
         else DL_FILE_PATHS[req.environment]
     )
 
+    # Fetch note before deleting the backup record
+    backup_note = await database.get_backup_note(req.backup_id)
+
     try:
         original = await gitlab_client.get_file(file_path)
     except Exception as exc:
         raise HTTPException(500, f"GitLab read failed: {exc}")
 
-    old_url = get_nested(original, path)
-
-    updated = copy.deepcopy(original)
+    old_url  = get_nested(original, path)
+    updated  = copy.deepcopy(original)
     set_nested(updated, path, req.backup_url.strip())
 
-    label = FIELD_LABELS.get(req.field, req.field)
-    commit_msg = f"Update {label} {req.currency} URL by {req.username}"
+    label      = FIELD_LABELS.get(req.field, req.field)
+    username   = user["username"]
+    commit_msg = f"Update {label} {req.currency} URL by {username}"
+    if backup_note:
+        commit_msg += f" [{backup_note}]"
 
     try:
         await gitlab_client.update_file(file_path, updated, commit_msg)
     except Exception as exc:
         raise HTTPException(500, f"GitLab push failed: {exc}")
 
-    # Remove the deployed URL from the backup list
     await database.delete_backup_url_by_id(req.backup_id)
 
     if old_url:
-        await database.add_expired_url(req.environment, req.currency, req.field, old_url)
+        await database.add_expired_url(
+            req.environment, req.currency, req.field, old_url
+        )
 
     await database.add_deploy_history(
-        req.username, req.environment, req.currency, req.field, old_url, req.backup_url.strip()
+        username, req.environment, req.currency, req.field,
+        old_url, req.backup_url.strip(), backup_note,
     )
 
     return {"ok": True, "old_url": old_url, "new_url": req.backup_url.strip()}
 
 
+# ── history ────────────────────────────────────────────────────────────────────
+
 @app.get("/api/history")
-async def get_history():
+async def get_history(_user: dict = Depends(require_auth)):
     return {"history": await database.get_deploy_history(100)}
+
+
+# ── user management (admin only) ───────────────────────────────────────────────
+
+class CreateUserRequest(BaseModel):
+    username: str
+    password: str
+    role:     str
+
+
+class UpdateUserRequest(BaseModel):
+    username: str
+    password: Optional[str] = None
+    role:     str
+
+
+@app.get("/api/users")
+async def list_users(_user: dict = Depends(require_admin)):
+    return {"users": await database.get_all_users()}
+
+
+@app.post("/api/users")
+async def create_user(req: CreateUserRequest, _user: dict = Depends(require_admin)):
+    if req.role not in ("readonly", "readwrite", "admin"):
+        raise HTTPException(400, "Invalid role")
+    if not req.username.strip() or not req.password:
+        raise HTTPException(400, "Username and password required")
+    try:
+        uid = await database.create_user(
+            req.username.strip(), hash_password(req.password), req.role
+        )
+        return {"ok": True, "id": uid}
+    except Exception as exc:
+        if "UNIQUE" in str(exc):
+            raise HTTPException(409, "帳號已存在")
+        raise HTTPException(500, str(exc))
+
+
+@app.put("/api/users/{user_id}")
+async def update_user_ep(
+    user_id: int, req: UpdateUserRequest, user: dict = Depends(require_admin)
+):
+    if req.role not in ("readonly", "readwrite", "admin"):
+        raise HTTPException(400, "Invalid role")
+    if user_id == user["id"] and req.role != "admin":
+        raise HTTPException(400, "無法取消自己的管理員權限")
+    pw_hash = hash_password(req.password) if req.password else None
+    await database.update_user(user_id, req.username.strip(), pw_hash, req.role)
+    return {"ok": True}
+
+
+@app.delete("/api/users/{user_id}")
+async def delete_user_ep(user_id: int, user: dict = Depends(require_admin)):
+    if user_id == user["id"]:
+        raise HTTPException(400, "無法刪除自己的帳號")
+    await database.delete_user(user_id)
+    return {"ok": True}
 
 
 # ── validation ─────────────────────────────────────────────────────────────────

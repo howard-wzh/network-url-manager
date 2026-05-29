@@ -29,22 +29,42 @@ header {
   box-shadow: 0 2px 8px rgba(0,0,0,.35);
 }
 header h1 { font-size: 18px; font-weight: 700; color: #fff; letter-spacing: .5px; }
-.user-wrap { display: flex; align-items: center; gap: 8px; color: #a0aec0; font-size: 12px; }
-#username-select {
+.header-right { display: flex; align-items: center; gap: 10px; }
+.header-user { color: #e2e8f0; font-size: 13px; font-weight: 600; }
+.role-badge {
+  font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px;
+  letter-spacing: .4px;
+}
+.role-badge.admin     { background: #f6e05e; color: #744210; }
+.role-badge.readwrite { background: #68d391; color: #1a4731; }
+.role-badge.readonly  { background: #a0aec0; color: #fff; }
+.btn-header {
   background: rgba(255,255,255,.12);
-  color: #fff;
+  color: #e2e8f0;
   border: 1px solid rgba(255,255,255,.25);
   border-radius: 5px;
-  padding: 5px 10px;
-  font-size: 13px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
-  outline: none;
+  transition: background .15s;
 }
-#username-select:focus { border-color: rgba(255,255,255,.55); }
-#username-select option { background: #1a3a5c; }
+.btn-header:hover { background: rgba(255,255,255,.22); }
+
+/* ── GitLab status bar ───────────────────────────────────────────────────────── */
+#gitlab-status {
+  padding: 8px 20px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.gs-ok  { background: #c6f6d5; color: #22543d; }
+.gs-err { background: #fed7d7; color: #822727; }
 
 /* ── layout ──────────────────────────────────────────────────────────────────── */
-main { padding: 20px 20px 40px; max-width: 1900px; margin: 0 auto; }
+main { padding: 16px 20px 40px; max-width: 1900px; margin: 0 auto; }
 
 /* ── alerts ──────────────────────────────────────────────────────────────────── */
 #error-banner {
@@ -91,14 +111,11 @@ main { padding: 20px 20px 40px; max-width: 1900px; margin: 0 auto; }
 
 /* ── table ───────────────────────────────────────────────────────────────────── */
 .table-wrapper { overflow-x: auto; }
-
 .url-table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
 }
-
-/* column widths */
 .url-table colgroup col.col-currency { width: 72px; }
 .url-table colgroup col.col-field    { width: calc((100% - 72px) / 4); }
 
@@ -149,7 +166,12 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
   line-height: 1.5;
   color: #2d3748;
   font-family: 'SFMono-Regular', Consolas, monospace;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  flex-wrap: wrap;
 }
+.using-url-text { word-break: break-all; }
 
 /* expired URLs */
 .expired-url {
@@ -161,6 +183,49 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
   font-family: 'SFMono-Regular', Consolas, monospace;
   line-height: 1.45;
 }
+
+/* ── info icon / tooltip ─────────────────────────────────────────────────────── */
+.info-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  background: #3b82f6;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  font-style: normal;
+  cursor: help;
+  line-height: 1;
+  margin-top: 1px;
+}
+.info-icon::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 160px;
+  max-width: 260px;
+  background: #1a202c;
+  color: #e2e8f0;
+  padding: 7px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 400;
+  white-space: pre-wrap;
+  word-break: break-word;
+  display: none;
+  z-index: 500;
+  pointer-events: none;
+  line-height: 1.5;
+  box-shadow: 0 4px 12px rgba(0,0,0,.3);
+}
+.info-icon:hover::after { display: block; }
 
 /* ── backup list (multi-URL) ─────────────────────────────────────────────────── */
 .backup-list { display: flex; flex-direction: column; gap: 3px; margin-bottom: 5px; }
@@ -185,6 +250,19 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
   text-overflow: ellipsis;
   cursor: default;
 }
+.backup-item-edit {
+  flex-shrink: 0;
+  background: none;
+  color: #718096;
+  border: none;
+  padding: 2px 4px;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: color .15s, background .15s;
+}
+.backup-item-edit:hover { color: #2563eb; background: #ebf4ff; }
+
 .backup-item-deploy {
   flex-shrink: 0;
   background: #2563eb;
@@ -263,7 +341,6 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
   font-size: 14px;
   font-weight: 600;
 }
-
 .history-table { width: 100%; border-collapse: collapse; }
 .history-table th {
   background: #edf2f7;
@@ -283,15 +360,14 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
   vertical-align: top;
 }
 .history-table tr:hover td { background: #f7fafc; }
-
 .url-change-cell { word-break: break-all; line-height: 1.6; }
 .old-url { color: #e53e3e; font-family: monospace; font-size: 11px; }
 .new-url { color: #2f855a; font-family: monospace; font-size: 11px; }
 .arrow   { color: #718096; padding: 0 4px; }
-
 .empty-row td { text-align: center; color: #a0aec0; padding: 24px !important; }
+.note-cell { color: #4a5568; font-size: 11px; max-width: 180px; word-break: break-word; }
 
-/* ── modal ───────────────────────────────────────────────────────────────────── */
+/* ── modal (shared) ──────────────────────────────────────────────────────────── */
 .modal {
   position: fixed; inset: 0; z-index: 1000;
   display: flex; align-items: center; justify-content: center;
@@ -317,7 +393,28 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
 }
 .modal-body p { margin-bottom: 8px; line-height: 1.6; color: #4a5568; }
 .modal-body strong { color: #2d3748; }
+.modal-buttons {
+  display: flex; gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+.btn-ok {
+  background: #2563eb; color: #fff;
+  border: none; padding: 8px 22px;
+  border-radius: 5px; font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: background .15s;
+}
+.btn-ok:hover { background: #1d4ed8; }
+.btn-cancel {
+  background: #fff; color: #4a5568;
+  border: 1px solid #cbd5e0;
+  padding: 8px 22px; border-radius: 5px;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: background .15s;
+}
+.btn-cancel:hover { background: #f7fafc; }
 
+/* deploy modal */
 .url-change-box {
   background: #f7fafc;
   border: 1px solid #e2e8f0;
@@ -340,26 +437,83 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
   border-radius: 4px;
   line-height: 1.5;
 }
-.modal-buttons {
-  display: flex; gap: 10px;
-  justify-content: flex-end;
-  margin-top: 20px;
+
+/* ── edit backup modal ───────────────────────────────────────────────────────── */
+.form-label {
+  display: block;
+  font-size: 12px; font-weight: 600; color: #4a5568;
+  margin-bottom: 5px; margin-top: 14px;
 }
-.btn-ok {
-  background: #2563eb; color: #fff;
-  border: none; padding: 8px 22px;
-  border-radius: 5px; font-size: 13px; font-weight: 700;
-  cursor: pointer; transition: background .15s;
-}
-.btn-ok:hover { background: #1d4ed8; }
-.btn-cancel {
-  background: #fff; color: #4a5568;
+.form-label:first-child { margin-top: 0; }
+.form-input {
+  width: 100%;
+  padding: 8px 10px;
   border: 1px solid #cbd5e0;
-  padding: 8px 22px; border-radius: 5px;
-  font-size: 13px; font-weight: 600;
-  cursor: pointer; transition: background .15s;
+  border-radius: 5px;
+  font-size: 12.5px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  color: #2d3748;
+  background: #fff;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
 }
-.btn-cancel:hover { background: #f7fafc; }
+.form-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59,130,246,.2);
+}
+.form-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e0;
+  border-radius: 5px;
+  font-size: 12.5px;
+  color: #2d3748;
+  background: #fff;
+  outline: none;
+  resize: vertical;
+  min-height: 72px;
+  font-family: inherit;
+  transition: border-color .15s, box-shadow .15s;
+}
+.form-textarea:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59,130,246,.2);
+}
+
+/* ── user management modal ───────────────────────────────────────────────────── */
+.users-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+.users-table th {
+  background: #edf2f7; padding: 7px 10px;
+  text-align: left; font-size: 12px; font-weight: 700; color: #4a5568;
+  border-bottom: 2px solid #cbd5e0;
+}
+.users-table td {
+  padding: 7px 10px; border-bottom: 1px solid #edf2f7;
+  font-size: 12px; color: #2d3748; vertical-align: middle;
+}
+.user-role-select {
+  padding: 4px 8px; border: 1px solid #cbd5e0; border-radius: 4px;
+  font-size: 12px; color: #2d3748; background: #fff; cursor: pointer;
+}
+.user-action-btn {
+  padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 600;
+  cursor: pointer; border: 1px solid; margin-left: 4px; transition: background .15s;
+}
+.user-save-btn  { background: #fff; color: #2563eb; border-color: #2563eb; }
+.user-save-btn:hover  { background: #2563eb; color: #fff; }
+.user-pw-btn    { background: #fff; color: #4a5568; border-color: #a0aec0; }
+.user-pw-btn:hover    { background: #f7fafc; }
+.user-del-btn   { background: #fff; color: #e53e3e; border-color: #e53e3e; }
+.user-del-btn:hover   { background: #fff5f5; }
+.users-divider { border: none; border-top: 1px solid #e2e8f0; margin: 16px 0 12px; }
+.users-add-title { font-size: 13px; font-weight: 700; color: #2d3748; margin-bottom: 10px; }
+.users-add-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.users-add-form .form-input { flex: 1; min-width: 100px; }
+.user-role-sel-add {
+  padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 5px;
+  font-size: 12px; color: #2d3748; background: #fff;
+}
+.users-form-error { color: #e53e3e; font-size: 12px; margin-top: 8px; min-height: 18px; }
 
 /* ── toast ───────────────────────────────────────────────────────────────────── */
 .toast {
@@ -381,15 +535,16 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
 <!-- ═══════════════════════════ HEADER ═════════════════════════════════════ -->
 <header>
   <h1>URL Manager</h1>
-  <div class="user-wrap">
-    <span>操作者：</span>
-    <select id="username-select">
-      <option value="Howard">Howard</option>
-      <option value="Sampath">Sampath</option>
-      <option value="Wilson">Wilson</option>
-    </select>
+  <div class="header-right">
+    <span class="header-user" id="header-username"></span>
+    <span class="role-badge" id="header-role-badge"></span>
+    <button class="btn-header hidden" id="btn-user-mgmt">用戶管理</button>
+    <button class="btn-header" id="btn-logout">登出</button>
   </div>
 </header>
+
+<!-- ── GitLab status bar ──────────────────────────────────────────────────── -->
+<div id="gitlab-status" class="hidden"></div>
 
 <!-- ═══════════════════════════ MAIN ═══════════════════════════════════════ -->
 <main>
@@ -457,6 +612,7 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
               <th>幣別</th>
               <th>欄位</th>
               <th>URL 變更</th>
+              <th>備註</th>
             </tr>
           </thead>
           <tbody id="history-tbody"></tbody>
@@ -467,7 +623,7 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
   </div><!-- #content -->
 </main>
 
-<!-- ═══════════════════════════ MODAL ══════════════════════════════════════ -->
+<!-- ═══════════════════════════ DEPLOY MODAL ═══════════════════════════════ -->
 <div id="confirm-modal" class="modal hidden">
   <div class="modal-overlay" id="modal-overlay"></div>
   <div class="modal-dialog">
@@ -476,6 +632,56 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
     <div class="modal-buttons">
       <button class="btn-cancel" id="btn-cancel">取消</button>
       <button class="btn-ok"     id="btn-ok">確認 Deploy</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ EDIT BACKUP MODAL ══════════════════════════ -->
+<div id="edit-modal" class="modal hidden">
+  <div class="modal-overlay" id="edit-overlay"></div>
+  <div class="modal-dialog" style="max-width:500px;">
+    <h3>編輯備用域名</h3>
+    <div class="modal-body">
+      <label class="form-label">域名 URL</label>
+      <input type="text" id="edit-url-input" class="form-input" placeholder="https://...">
+      <label class="form-label">備註 <span style="color:#a0aec0;font-weight:400;">（選填）</span></label>
+      <textarea id="edit-note-input" class="form-textarea" placeholder="說明此域名的用途或來源…"></textarea>
+    </div>
+    <div class="modal-buttons">
+      <button class="btn-cancel" id="edit-btn-cancel">取消</button>
+      <button class="btn-ok"     id="edit-btn-save">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ USER MANAGEMENT MODAL ══════════════════════ -->
+<div id="users-modal" class="modal hidden">
+  <div class="modal-overlay" id="users-overlay"></div>
+  <div class="modal-dialog" style="max-width:640px;">
+    <h3>用戶管理</h3>
+    <div class="modal-body">
+      <table class="users-table">
+        <thead>
+          <tr><th>帳號</th><th>權限</th><th style="text-align:right;">操作</th></tr>
+        </thead>
+        <tbody id="users-tbody"></tbody>
+      </table>
+      <hr class="users-divider">
+      <div class="users-add-title">新增用戶</div>
+      <div class="users-add-form">
+        <input type="text"     id="new-username" class="form-input" placeholder="帳號" style="max-width:160px;">
+        <input type="password" id="new-password" class="form-input" placeholder="密碼" style="max-width:160px;">
+        <select id="new-role" class="user-role-sel-add">
+          <option value="readonly">唯讀</option>
+          <option value="readwrite">讀寫</option>
+          <option value="admin">管理員</option>
+        </select>
+        <button class="btn-ok" id="add-user-btn" style="padding:8px 16px;font-size:12px;white-space:nowrap;">新增</button>
+      </div>
+      <div class="users-form-error" id="user-form-error"></div>
+    </div>
+    <div class="modal-buttons">
+      <button class="btn-cancel" id="users-btn-close">關閉</button>
     </div>
   </div>
 </div>
@@ -494,10 +700,13 @@ const FIELD_LABELS= {
   downloadUrl:      'download url',
   downloadBase64Url:'download base64 url',
 };
+const ROLE_LABELS = { admin: '管理員', readwrite: '讀寫', readonly: '唯讀' };
 
 // ── state ────────────────────────────────────────────────────────────────────
 let appData       = null;
+let currentUser   = null;
 let pendingDeploy = null;
+let editingId     = null;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function esc(s) {
@@ -505,11 +714,6 @@ function esc(s) {
   return String(s)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function debounce(fn, ms) {
-  let t;
-  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
 function nested(obj, ...keys) {
@@ -531,8 +735,6 @@ function toast(msg, isErr = false) {
 
 function fmtTimestamp(iso) {
   try {
-    // Python isoformat() gives "2024-01-15T10:30:00.123456+00:00"
-    // Normalize to a form new Date() can parse reliably
     const normalized = iso.replace('+00:00', 'Z').replace(/\.\d+Z$/, 'Z');
     const d = new Date(normalized);
     if (isNaN(d.getTime())) return iso;
@@ -540,17 +742,38 @@ function fmtTimestamp(iso) {
   } catch { return iso; }
 }
 
+// Fetch wrapper — redirect to /login on 401
+async function apiFetch(url, opts = {}) {
+  const res = await fetch(url, opts);
+  if (res.status === 401) { window.location.href = '/login'; return null; }
+  return res;
+}
+
 // ── data fetching ─────────────────────────────────────────────────────────────
 async function loadData() {
   setLoading(true);
   try {
-    const res = await fetch('/api/data');
+    const res = await apiFetch('/api/data');
+    if (!res) return;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    appData = await res.json();
+    appData     = await res.json();
+    currentUser = appData.current_user;
+
+    // Update header
+    document.getElementById('header-username').textContent = currentUser.username;
+    const badge = document.getElementById('header-role-badge');
+    badge.textContent  = ROLE_LABELS[currentUser.role] || currentUser.role;
+    badge.className    = `role-badge ${currentUser.role}`;
+
+    if (currentUser.role === 'admin') {
+      document.getElementById('btn-user-mgmt').classList.remove('hidden');
+    }
+
+    renderGitlabStatus(appData.errors);
 
     if (appData.errors) {
       showBanner('GitLab 連線異常：' + Object.entries(appData.errors)
-        .map(([k,v]) => `${k}: ${v}`).join(' | '));
+        .map(([k]) => k).join('、'));
     } else {
       hideBanner();
     }
@@ -565,11 +788,28 @@ async function loadData() {
 
 async function loadHistory() {
   try {
-    const res  = await fetch('/api/history');
+    const res  = await apiFetch('/api/history');
+    if (!res) return;
     const data = await res.json();
     renderHistory(data.history || []);
   } catch (e) {
     console.warn('history load failed', e);
+  }
+}
+
+// ── GitLab status bar ──────────────────────────────────────────────────────
+function renderGitlabStatus(errors) {
+  const bar = document.getElementById('gitlab-status');
+  bar.classList.remove('hidden', 'gs-ok', 'gs-err');
+
+  if (!errors) {
+    bar.className = 'gs-ok';
+    bar.innerHTML = '✓&nbsp; 所有 GitLab 資料載入成功';
+    setTimeout(() => bar.classList.add('hidden'), 4000);
+  } else {
+    const names = Object.keys(errors).join('、');
+    bar.className = 'gs-err';
+    bar.innerHTML = `⚠&nbsp; 部分載入失敗：${esc(names)}`;
   }
 }
 
@@ -580,8 +820,10 @@ function renderAll() {
 }
 
 function renderEnvTable(env) {
-  const tbody = document.getElementById(`tbody-${env}`);
+  const tbody  = document.getElementById(`tbody-${env}`);
+  if (!tbody) return;
   tbody.innerHTML = '';
+  const canEdit = currentUser && currentUser.role !== 'readonly';
 
   CURRENCIES.forEach(currency => {
     const usingRow  = document.createElement('tr');
@@ -606,12 +848,22 @@ function renderEnvTable(env) {
         uc.textContent = '—';
       } else {
         uc.className = 'using-cell';
-        const usingUrl   = nested(appData, 'using_urls',  env, currency, field);
+        const usingUrl    = nested(appData, 'using_urls',  env, currency, field);
+        const usingNote   = nested(appData, 'using_notes', env, currency, field);
         const expiredList = nested(appData, 'expired_urls', env, currency, field) || [];
 
         const uDiv = document.createElement('div');
-        uDiv.className   = 'using-url';
-        uDiv.textContent = usingUrl || '—';
+        uDiv.className = 'using-url';
+
+        const urlText = document.createElement('span');
+        urlText.className   = 'using-url-text';
+        urlText.textContent = usingUrl || '—';
+        uDiv.appendChild(urlText);
+
+        if (usingUrl && usingNote) {
+          const info = makeInfoIcon(usingNote);
+          uDiv.appendChild(info);
+        }
         uc.appendChild(uDiv);
 
         expiredList.forEach(eu => {
@@ -631,38 +883,39 @@ function renderEnvTable(env) {
       } else {
         bc.className = 'backup-cell';
 
-        // List of saved backup URLs
         const savedList = nested(appData, 'backup_urls', env, currency, field) || [];
         const listDiv   = document.createElement('div');
         listDiv.className = 'backup-list';
 
         savedList.forEach(item => {
-          listDiv.appendChild(makeBackupItem(env, currency, field, item.id, item.url));
+          listDiv.appendChild(
+            makeBackupItem(env, currency, field, item.id, item.url, item.note || '', canEdit)
+          );
         });
         bc.appendChild(listDiv);
 
-        // Add-URL row
-        const addRow = document.createElement('div');
-        addRow.className = 'backup-add-row';
+        // Add-URL row (read-write only)
+        if (canEdit) {
+          const addRow = document.createElement('div');
+          addRow.className = 'backup-add-row';
 
-        const inp = document.createElement('input');
-        inp.type        = 'text';
-        inp.className   = 'backup-input';
-        inp.placeholder = '輸入域名，如：abc.example.com';
+          const inp = document.createElement('input');
+          inp.type        = 'text';
+          inp.className   = 'backup-input';
+          inp.placeholder = '輸入域名，如：abc.example.com';
 
-        const addBtn = document.createElement('button');
-        addBtn.className   = 'backup-add-btn';
-        addBtn.textContent = '+ 新增';
-        addBtn.addEventListener('click', () => onAddBackup(env, currency, field, inp, listDiv));
+          const addBtn = document.createElement('button');
+          addBtn.className   = 'backup-add-btn';
+          addBtn.textContent = '+ 新增';
+          addBtn.addEventListener('click', () => onAddBackup(env, currency, field, inp, listDiv));
+          inp.addEventListener('keydown', e => {
+            if (e.key === 'Enter') onAddBackup(env, currency, field, inp, listDiv);
+          });
 
-        // Also allow Enter key to add
-        inp.addEventListener('keydown', e => {
-          if (e.key === 'Enter') onAddBackup(env, currency, field, inp, listDiv);
-        });
-
-        addRow.appendChild(inp);
-        addRow.appendChild(addBtn);
-        bc.appendChild(addRow);
+          addRow.appendChild(inp);
+          addRow.appendChild(addBtn);
+          bc.appendChild(addRow);
+        }
       }
       backupRow.appendChild(bc);
     });
@@ -680,7 +933,7 @@ function renderHistory(list) {
     const tr = document.createElement('tr');
     tr.className = 'empty-row';
     const td = document.createElement('td');
-    td.colSpan = 6;
+    td.colSpan = 7;
     td.textContent = '尚無操作記錄';
     tr.appendChild(td);
     tbody.appendChild(tr);
@@ -703,121 +956,112 @@ function renderHistory(list) {
     });
 
     // URL change cell
-    const td = document.createElement('td');
-    td.className = 'url-change-cell';
+    const urlTd = document.createElement('td');
+    urlTd.className = 'url-change-cell';
+    const oldS = document.createElement('span'); oldS.className = 'old-url'; oldS.textContent = rec.old_url || '（無）';
+    const arr  = document.createElement('span'); arr.className  = 'arrow';   arr.textContent  = '→';
+    const newS = document.createElement('span'); newS.className = 'new-url'; newS.textContent = rec.new_url;
+    urlTd.appendChild(oldS); urlTd.appendChild(arr); urlTd.appendChild(newS);
+    tr.appendChild(urlTd);
 
-    const oldS  = document.createElement('span');
-    oldS.className   = 'old-url';
-    oldS.textContent = rec.old_url || '（無）';
-
-    const arr   = document.createElement('span');
-    arr.className   = 'arrow';
-    arr.textContent = '→';
-
-    const newS  = document.createElement('span');
-    newS.className   = 'new-url';
-    newS.textContent = rec.new_url;
-
-    td.appendChild(oldS);
-    td.appendChild(arr);
-    td.appendChild(newS);
-    tr.appendChild(td);
+    // Note cell
+    const noteTd = document.createElement('td');
+    noteTd.className   = 'note-cell';
+    noteTd.textContent = rec.note || '—';
+    tr.appendChild(noteTd);
 
     tbody.appendChild(tr);
   });
 }
 
-// ── backup list helpers ───────────────────────────────────────────────────────
+// ── UI helpers ────────────────────────────────────────────────────────────────
+function makeInfoIcon(note) {
+  const el = document.createElement('i');
+  el.className = 'info-icon';
+  el.textContent = 'i';
+  el.setAttribute('data-tip', note);
+  return el;
+}
 
-function makeBackupItem(env, currency, field, id, url) {
+function makeBackupItem(env, currency, field, id, url, note, canEdit) {
   const row = document.createElement('div');
-  row.className    = 'backup-item';
-  row.dataset.id   = id;
+  row.className  = 'backup-item';
+  row.dataset.id = id;
 
   const urlSpan = document.createElement('span');
   urlSpan.className   = 'backup-item-url';
   urlSpan.textContent = url;
   urlSpan.title       = url;
-
-  const deployBtn = document.createElement('button');
-  deployBtn.className   = 'backup-item-deploy';
-  deployBtn.textContent = 'Deploy';
-  deployBtn.addEventListener('click', () => onDeployClick(env, currency, field, id, url));
-
-  const delBtn = document.createElement('button');
-  delBtn.className   = 'backup-item-del';
-  delBtn.textContent = '×';
-  delBtn.title       = '移除';
-  delBtn.addEventListener('click', () => onDeleteBackup(id, row));
-
   row.appendChild(urlSpan);
-  row.appendChild(deployBtn);
-  row.appendChild(delBtn);
+
+  if (note) row.appendChild(makeInfoIcon(note));
+
+  if (canEdit) {
+    const editBtn = document.createElement('button');
+    editBtn.className   = 'backup-item-edit';
+    editBtn.title       = '編輯';
+    editBtn.textContent = '✏';
+    editBtn.addEventListener('click', () => openEditModal(id, url, note, row));
+    row.appendChild(editBtn);
+
+    const deployBtn = document.createElement('button');
+    deployBtn.className   = 'backup-item-deploy';
+    deployBtn.textContent = 'Deploy';
+    deployBtn.addEventListener('click', () => onDeployClick(env, currency, field, id, url));
+    row.appendChild(deployBtn);
+
+    const delBtn = document.createElement('button');
+    delBtn.className   = 'backup-item-del';
+    delBtn.textContent = '×';
+    delBtn.title       = '移除';
+    delBtn.addEventListener('click', () => onDeleteBackup(id, row));
+    row.appendChild(delBtn);
+  }
+
   return row;
 }
 
-/**
- * Extract host (hostname + optional :port) from whatever the user typed.
- *   "abc.com"           → "abc.com"
- *   "abc.com:8080"      → "abc.com:8080"
- *   "https://abc.com:8080/path" → "abc.com:8080"
- */
+// ── URL helpers ───────────────────────────────────────────────────────────────
 function extractHostname(raw) {
   let s = raw.trim();
-  s = s.replace(/^https?:\/\//i, '');   // strip scheme
-  s = s.split('/')[0];                   // strip path
-  s = s.split('?')[0].split('#')[0];     // strip query/hash
-  return s;   // may be "host" or "host:port"
+  s = s.replace(/^https?:\/\//i, '');
+  s = s.split('/')[0];
+  s = s.split('?')[0].split('#')[0];
+  return s;
 }
 
-/**
- * Validate host (hostname[:port]).
- * Returns error string or null if valid.
- */
 function validateHostname(host) {
-  if (!host)             return '請輸入域名';
-  if (/\s/.test(host))   return '域名不能包含空格';
-
-  // Split into hostname and optional port
+  if (!host)           return '請輸入域名';
+  if (/\s/.test(host)) return '域名不能包含空格';
   const colonParts = host.split(':');
   if (colonParts.length > 2) return '域名格式不正確（多個 :）';
   const [hostname, port] = colonParts;
-
-  if (!hostname.includes('.'))                        return '域名格式不正確（缺少 .）';
-  if (hostname.split('.').some(p => p === ''))        return '域名格式不正確（多餘的 .）';
-  if (!/^[a-zA-Z0-9.\-]+$/.test(hostname))           return '域名包含不合法字元';
-
+  if (!hostname.includes('.'))                 return '域名格式不正確（缺少 .）';
+  if (hostname.split('.').some(p => p === '')) return '域名格式不正確（多餘的 .）';
+  if (!/^[a-zA-Z0-9.\-]+$/.test(hostname))    return '域名包含不合法字元';
   if (port !== undefined) {
-    if (!/^\d+$/.test(port))                          return 'Port 必須為數字';
+    if (!/^\d+$/.test(port))             return 'Port 必須為數字';
     const n = parseInt(port, 10);
-    if (n < 1 || n > 65535)                           return 'Port 範圍須在 1–65535';
+    if (n < 1 || n > 65535)             return 'Port 範圍須在 1–65535';
   }
-
   return null;
 }
 
-/**
- * Build the complete URL:
- *   https://{hostname}{path from usingUrl}
- */
 function buildUrl(hostname, usingUrl) {
   let path = '';
   if (usingUrl && usingUrl.startsWith('http')) {
-    try {
-      const ref = new URL(usingUrl);
-      path = ref.pathname + ref.search + ref.hash;
-    } catch {}
+    try { const ref = new URL(usingUrl); path = ref.pathname + ref.search + ref.hash; } catch {}
   }
   return `https://${hostname}${path}`;
 }
 
+// ── backup operations ─────────────────────────────────────────────────────────
 async function onAddBackup(env, currency, field, inp, listDiv) {
   const raw = inp.value.trim();
   if (!raw) { inp.focus(); return; }
 
   const hostname = extractHostname(raw);
   const err      = validateHostname(hostname);
-
   if (err) {
     inp.style.borderColor = '#e53e3e';
     inp.title = err;
@@ -830,18 +1074,20 @@ async function onAddBackup(env, currency, field, inp, listDiv) {
 
   const usingUrl = nested(appData, 'using_urls', env, currency, field);
   const url      = buildUrl(hostname, usingUrl);
-  inp.value      = url;   // show the completed URL
+  inp.value      = url;
+  inp.disabled   = true;
 
-  inp.disabled = true;
   try {
-    const res = await fetch('/api/backup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ environment: env, currency, field, url }),
+    const res = await apiFetch('/api/backup', {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({environment: env, currency, field, url, note: ''}),
     });
+    if (!res) return;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    listDiv.appendChild(makeBackupItem(env, currency, field, data.id, data.url));
+    const canEdit = currentUser && currentUser.role !== 'readonly';
+    listDiv.appendChild(makeBackupItem(env, currency, field, data.id, data.url, data.note || '', canEdit));
     inp.value = '';
   } catch (e) {
     toast('新增失敗：' + e.message, true);
@@ -853,11 +1099,66 @@ async function onAddBackup(env, currency, field, inp, listDiv) {
 
 async function onDeleteBackup(id, rowEl) {
   try {
-    const res = await fetch(`/api/backup/${id}`, { method: 'DELETE' });
+    const res = await apiFetch(`/api/backup/${id}`, {method: 'DELETE'});
+    if (!res) return;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     rowEl.remove();
   } catch (e) {
     toast('刪除失敗：' + e.message, true);
+  }
+}
+
+// ── edit backup modal ─────────────────────────────────────────────────────────
+let editingRow = null;
+
+function openEditModal(id, url, note, rowEl) {
+  editingId  = id;
+  editingRow = rowEl;
+  document.getElementById('edit-url-input').value  = url;
+  document.getElementById('edit-note-input').value = note;
+  document.getElementById('edit-modal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('edit-url-input').focus(), 50);
+}
+
+function closeEditModal() {
+  editingId  = null;
+  editingRow = null;
+  document.getElementById('edit-modal').classList.add('hidden');
+}
+
+async function onSaveEdit() {
+  if (editingId == null) return;
+  const url  = document.getElementById('edit-url-input').value.trim();
+  const note = document.getElementById('edit-note-input').value.trim();
+  if (!url) { toast('URL 不能為空', true); return; }
+
+  try {
+    const res = await apiFetch(`/api/backup/${editingId}`, {
+      method:  'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({url, note}),
+    });
+    if (!res) return;
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    // Update DOM in-place
+    if (editingRow) {
+      const urlSpan = editingRow.querySelector('.backup-item-url');
+      if (urlSpan) { urlSpan.textContent = url; urlSpan.title = url; }
+
+      // Refresh info icon
+      const oldInfo = editingRow.querySelector('.info-icon');
+      if (oldInfo) oldInfo.remove();
+      if (note) {
+        const urlSpanRef = editingRow.querySelector('.backup-item-url');
+        if (urlSpanRef) urlSpanRef.insertAdjacentElement('afterend', makeInfoIcon(note));
+      }
+    }
+
+    closeEditModal();
+    toast('已儲存');
+  } catch (e) {
+    toast('儲存失敗：' + e.message, true);
   }
 }
 
@@ -866,17 +1167,13 @@ function onDeployClick(env, currency, field, backupId, backupUrl) {
   const usingUrl   = nested(appData, 'using_urls', env, currency, field) || '（尚無 URL）';
   const fieldLabel = FIELD_LABELS[field] || field;
   pendingDeploy = { env, currency, field, backupId, backupUrl, usingUrl, fieldLabel };
-  openModal();
+  openDeployModal();
 }
 
-function openModal() {
+function openDeployModal() {
   const { env, currency, fieldLabel, usingUrl, backupUrl } = pendingDeploy;
-
   document.getElementById('modal-body').innerHTML = `
-    <p>確認要將
-      <strong>[${esc(env)}][${esc(currency)}][${esc(fieldLabel)}]</strong>
-      的 URL 更新並 push 到 GitLab？
-    </p>
+    <p>確認要將 <strong>[${esc(env)}][${esc(currency)}][${esc(fieldLabel)}]</strong> 的 URL 更新並 push 到 GitLab？</p>
     <div class="url-change-box">
       <div class="url-row">
         <span class="url-label">目前 Using</span>
@@ -888,42 +1185,35 @@ function openModal() {
       </div>
     </div>
   `;
-
   document.getElementById('confirm-modal').classList.remove('hidden');
 }
 
-function closeModal() {
+function closeDeployModal() {
   document.getElementById('confirm-modal').classList.add('hidden');
   pendingDeploy = null;
 }
 
 async function onConfirmDeploy() {
   if (!pendingDeploy) return;
-
-  const username = document.getElementById('username-select').value;
   const { env, currency, field, backupId, backupUrl } = pendingDeploy;
-  closeModal();
+  closeDeployModal();
   setLoading(true);
 
   try {
-    const res = await fetch('/api/deploy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        environment: env,
-        currency,
-        field,
-        backup_url: backupUrl,
-        backup_id:  backupId,
-        username,
+    const res = await apiFetch('/api/deploy', {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({
+        environment: env, currency, field,
+        backup_url:  backupUrl,
+        backup_id:   backupId,
       }),
     });
-
+    if (!res) return;
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || `HTTP ${res.status}`);
     }
-
     toast('Deploy 成功！已 push 至 GitLab');
     await loadData();
     await loadHistory();
@@ -932,6 +1222,166 @@ async function onConfirmDeploy() {
   } finally {
     setLoading(false);
   }
+}
+
+// ── user management ───────────────────────────────────────────────────────────
+async function openUsersModal() {
+  document.getElementById('users-modal').classList.remove('hidden');
+  document.getElementById('user-form-error').textContent = '';
+  await loadUsers();
+}
+
+function closeUsersModal() {
+  document.getElementById('users-modal').classList.add('hidden');
+}
+
+async function loadUsers() {
+  const res = await apiFetch('/api/users');
+  if (!res) return;
+  const data = await res.json();
+  renderUsersTable(data.users || []);
+}
+
+function renderUsersTable(users) {
+  const tbody = document.getElementById('users-tbody');
+  tbody.innerHTML = '';
+
+  users.forEach(u => {
+    const tr = document.createElement('tr');
+
+    const nameTd = document.createElement('td');
+    nameTd.textContent = u.username;
+
+    const roleTd = document.createElement('td');
+    const roleSelect = document.createElement('select');
+    roleSelect.className = 'user-role-select';
+    ['readonly','readwrite','admin'].forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r;
+      opt.textContent = ROLE_LABELS[r];
+      if (r === u.role) opt.selected = true;
+      roleSelect.appendChild(opt);
+    });
+    roleTd.appendChild(roleSelect);
+
+    const actionTd = document.createElement('td');
+    actionTd.style.textAlign = 'right';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className   = 'user-action-btn user-save-btn';
+    saveBtn.textContent = '儲存';
+    saveBtn.addEventListener('click', () => updateUser(u.id, u.username, roleSelect.value));
+
+    const pwBtn = document.createElement('button');
+    pwBtn.className   = 'user-action-btn user-pw-btn';
+    pwBtn.textContent = '改密碼';
+    pwBtn.addEventListener('click', () => promptResetPassword(u.id, u.username));
+
+    actionTd.appendChild(saveBtn);
+    actionTd.appendChild(pwBtn);
+
+    if (u.id !== currentUser.id) {
+      const delBtn = document.createElement('button');
+      delBtn.className   = 'user-action-btn user-del-btn';
+      delBtn.textContent = '刪除';
+      delBtn.addEventListener('click', () => deleteUser(u.id, u.username));
+      actionTd.appendChild(delBtn);
+    }
+
+    tr.appendChild(nameTd);
+    tr.appendChild(roleTd);
+    tr.appendChild(actionTd);
+    tbody.appendChild(tr);
+  });
+}
+
+async function updateUser(id, username, role) {
+  const res = await apiFetch(`/api/users/${id}`, {
+    method:  'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body:    JSON.stringify({username, role}),
+  });
+  if (!res) return;
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    toast(err.detail || '更新失敗', true);
+    return;
+  }
+  toast(`已更新 ${username} 的權限`);
+  await loadUsers();
+}
+
+function promptResetPassword(id, username) {
+  const pw = prompt(`重設 "${username}" 的新密碼：`);
+  if (pw === null || !pw.trim()) return;
+  resetPassword(id, username, pw.trim());
+}
+
+async function resetPassword(id, username, password) {
+  // Get current role from table select
+  const selects = document.querySelectorAll('#users-tbody select.user-role-select');
+  let role = 'readonly';
+  document.querySelectorAll('#users-tbody tr').forEach(tr => {
+    const nameCell = tr.querySelector('td:first-child');
+    if (nameCell && nameCell.textContent === username) {
+      const sel = tr.querySelector('select');
+      if (sel) role = sel.value;
+    }
+  });
+
+  const res = await apiFetch(`/api/users/${id}`, {
+    method:  'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body:    JSON.stringify({username, password, role}),
+  });
+  if (!res) return;
+  if (!res.ok) { toast('密碼更新失敗', true); return; }
+  toast(`已更新 ${username} 的密碼`);
+}
+
+async function deleteUser(id, username) {
+  if (!confirm(`確定刪除用戶「${username}」？此操作無法復原。`)) return;
+  const res = await apiFetch(`/api/users/${id}`, {method: 'DELETE'});
+  if (!res) return;
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    toast(err.detail || '刪除失敗', true);
+    return;
+  }
+  toast(`已刪除 ${username}`);
+  await loadUsers();
+}
+
+async function addUser() {
+  const username = document.getElementById('new-username').value.trim();
+  const password = document.getElementById('new-password').value;
+  const role     = document.getElementById('new-role').value;
+  const errEl    = document.getElementById('user-form-error');
+
+  if (!username || !password) { errEl.textContent = '帳號和密碼不能為空'; return; }
+  errEl.textContent = '';
+
+  const res = await apiFetch('/api/users', {
+    method:  'POST',
+    headers: {'Content-Type': 'application/json'},
+    body:    JSON.stringify({username, password, role}),
+  });
+  if (!res) return;
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    errEl.textContent = err.detail || '新增失敗';
+    return;
+  }
+  document.getElementById('new-username').value = '';
+  document.getElementById('new-password').value = '';
+  toast(`已新增用戶 ${username}`);
+  await loadUsers();
+}
+
+// ── logout ────────────────────────────────────────────────────────────────────
+async function doLogout() {
+  await apiFetch('/api/logout', {method: 'POST'});
+  window.location.href = '/login';
 }
 
 // ── ui helpers ────────────────────────────────────────────────────────────────
@@ -952,8 +1402,19 @@ function hideBanner() {
 
 // ── event wiring ──────────────────────────────────────────────────────────────
 document.getElementById('btn-ok').addEventListener('click', onConfirmDeploy);
-document.getElementById('btn-cancel').addEventListener('click', closeModal);
-document.getElementById('modal-overlay').addEventListener('click', closeModal);
+document.getElementById('btn-cancel').addEventListener('click', closeDeployModal);
+document.getElementById('modal-overlay').addEventListener('click', closeDeployModal);
+
+document.getElementById('edit-btn-save').addEventListener('click', onSaveEdit);
+document.getElementById('edit-btn-cancel').addEventListener('click', closeEditModal);
+document.getElementById('edit-overlay').addEventListener('click', closeEditModal);
+
+document.getElementById('btn-user-mgmt').addEventListener('click', openUsersModal);
+document.getElementById('users-btn-close').addEventListener('click', closeUsersModal);
+document.getElementById('users-overlay').addEventListener('click', closeUsersModal);
+document.getElementById('add-user-btn').addEventListener('click', addUser);
+
+document.getElementById('btn-logout').addEventListener('click', doLogout);
 
 // ── init ──────────────────────────────────────────────────────────────────────
 (async () => {
