@@ -95,6 +95,22 @@ async def api_logout(request: Request):
     return {"ok": True}
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password:     str
+
+
+@app.post("/api/me/password")
+async def change_password(req: ChangePasswordRequest, user: dict = Depends(require_auth)):
+    db_user = await database.get_user_by_username(user["username"])
+    if not db_user or not verify_password(req.current_password, db_user["password_hash"]):
+        raise HTTPException(status_code=400, detail="目前密碼不正確")
+    if len(req.new_password) < 6:
+        raise HTTPException(status_code=400, detail="新密碼至少需要 6 個字元")
+    await database.update_user(user["id"], user["username"], hash_password(req.new_password), user["role"])
+    return {"ok": True}
+
+
 @app.get("/api/me")
 async def api_me(user: dict = Depends(require_auth)):
     return {"username": user["username"], "role": user["role"]}

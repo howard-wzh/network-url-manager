@@ -542,6 +542,7 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
     <span class="header-user" id="header-username"></span>
     <span class="role-badge" id="header-role-badge"></span>
     <button class="btn-header hidden" id="btn-user-mgmt">用戶管理</button>
+    <button class="btn-header" id="btn-change-pw">修改密碼</button>
     <button class="btn-header" id="btn-logout">登出</button>
   </div>
 </header>
@@ -651,6 +652,27 @@ tr.backup-row td  { background: #fff;    border-bottom: 2px solid #c9d5e0; }
     <div class="modal-buttons">
       <button class="btn-cancel" id="edit-btn-cancel">取消</button>
       <button class="btn-ok"     id="edit-btn-save">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ CHANGE PASSWORD MODAL ═════════════════════ -->
+<div id="pw-modal" class="modal hidden">
+  <div class="modal-overlay" id="pw-overlay"></div>
+  <div class="modal-dialog" style="max-width:400px;">
+    <h3>修改密碼</h3>
+    <div class="modal-body">
+      <label class="form-label">目前密碼</label>
+      <input type="password" id="pw-current" class="form-input" autocomplete="current-password">
+      <label class="form-label">新密碼 <span style="color:#a0aec0;font-weight:400;">（至少 6 個字元）</span></label>
+      <input type="password" id="pw-new" class="form-input" autocomplete="new-password">
+      <label class="form-label">確認新密碼</label>
+      <input type="password" id="pw-confirm" class="form-input" autocomplete="new-password">
+      <div id="pw-error" style="color:#e53e3e;font-size:12px;margin-top:10px;min-height:18px;"></div>
+    </div>
+    <div class="modal-buttons">
+      <button class="btn-cancel" id="pw-btn-cancel">取消</button>
+      <button class="btn-ok"     id="pw-btn-save">確認修改</button>
     </div>
   </div>
 </div>
@@ -1381,6 +1403,50 @@ async function addUser() {
   await loadUsers();
 }
 
+// ── change password ───────────────────────────────────────────────────────────
+function openPwModal() {
+  document.getElementById('pw-current').value = '';
+  document.getElementById('pw-new').value     = '';
+  document.getElementById('pw-confirm').value = '';
+  document.getElementById('pw-error').textContent = '';
+  document.getElementById('pw-modal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('pw-current').focus(), 50);
+}
+
+function closePwModal() {
+  document.getElementById('pw-modal').classList.add('hidden');
+}
+
+async function onSavePassword() {
+  const current  = document.getElementById('pw-current').value;
+  const newPw    = document.getElementById('pw-new').value;
+  const confirm  = document.getElementById('pw-confirm').value;
+  const errEl    = document.getElementById('pw-error');
+  errEl.textContent = '';
+
+  if (!current)               { errEl.textContent = '請輸入目前密碼'; return; }
+  if (newPw.length < 6)       { errEl.textContent = '新密碼至少需要 6 個字元'; return; }
+  if (newPw !== confirm)      { errEl.textContent = '兩次新密碼輸入不一致'; return; }
+
+  try {
+    const res = await apiFetch('/api/me/password', {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({current_password: current, new_password: newPw}),
+    });
+    if (!res) return;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      errEl.textContent = err.detail || '修改失敗';
+      return;
+    }
+    closePwModal();
+    toast('密碼已更新，下次登入請使用新密碼');
+  } catch (e) {
+    errEl.textContent = '網路錯誤：' + e.message;
+  }
+}
+
 // ── logout ────────────────────────────────────────────────────────────────────
 async function doLogout() {
   await apiFetch('/api/logout', {method: 'POST'});
@@ -1416,6 +1482,11 @@ document.getElementById('btn-user-mgmt').addEventListener('click', openUsersModa
 document.getElementById('users-btn-close').addEventListener('click', closeUsersModal);
 document.getElementById('users-overlay').addEventListener('click', closeUsersModal);
 document.getElementById('add-user-btn').addEventListener('click', addUser);
+
+document.getElementById('btn-change-pw').addEventListener('click', openPwModal);
+document.getElementById('pw-btn-save').addEventListener('click', onSavePassword);
+document.getElementById('pw-btn-cancel').addEventListener('click', closePwModal);
+document.getElementById('pw-overlay').addEventListener('click', closePwModal);
 
 document.getElementById('btn-logout').addEventListener('click', doLogout);
 
